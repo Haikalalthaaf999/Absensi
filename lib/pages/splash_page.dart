@@ -1,56 +1,61 @@
-import 'package:project3/helper/database_helper.dart';
-import 'package:project3/models/user_model.dart';
-import 'package:project3/pages/admin/admin_dashboard__page.dart';
-import 'package:project3/pages/auth/login_page.dart';
-import 'package:project3/pages/user/user_dashboard_page.dart';
-import 'package:project3/services/session_service.dart';
-import 'package:flutter/material.dart';
-// 1. Import library Lottie
-import 'package:lottie/lottie.dart';
+// lib/screens/splash_screen.dart
 
-class SplashPage extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:project3/pages/auth/login_page.dart';
+import 'package:project3/pages/user/main_screen.dart';
+import 'package:lottie/lottie.dart';
+import 'dart:async';
+
+// Ganti 'project3' dengan nama project Anda jika berbeda
+
+import 'package:project3/utils/session_manager.dart';
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
   @override
-  _SplashPageState createState() => _SplashPageState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashPageState extends State<SplashPage> {
+class _SplashScreenState extends State<SplashScreen> {
+  final SessionManager _sessionManager = SessionManager();
+
   @override
   void initState() {
     super.initState();
-    _navigate();
+    _checkLoginStatus();
   }
 
-  void _navigate() async {
-    // Logika navigasi Anda tidak perlu diubah, sudah benar.
-    await Future.delayed(const Duration(seconds: 4));
-    if (!mounted) return;
+  void _checkLoginStatus() async {
+    // Memberi jeda agar splash screen terlihat
+    await Future.delayed(const Duration(seconds: 3));
 
-    final userId = await SessionService().getUserId();
-    if (userId == null) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => LoginPage()));
-      return;
-    }
+    final token = await _sessionManager.getToken();
 
-    User? user = await DatabaseHelper().getUserById(userId);
-    if (user != null) {
-      if (user.role == 'admin') {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AdminDashboardPage()));
+    if (mounted) {
+      if (token != null) {
+        // Jika token ada, langsung ke halaman utama
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+        );
       } else {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => UserDashboardPage()));
+        // Jika tidak ada token, ke halaman login
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
       }
-    } else {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => LoginPage()));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
+    return  Scaffold(
       body: Center(
-        // 2. Ganti widget di sini dengan Lottie.asset
-        child: Lottie.asset(
-          'assets/animations/loading.json', // Path ke file animasi Anda
+        // Anda bisa menaruh logo di sini
+       child: Lottie.asset(
+          'assets/animations/amongus.json', // Path ke file animasi Anda
           width: 200,
           height: 200,
           fit: BoxFit.fill,

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 // Palet Warna
-const Color primaryColor = Color(0xFF6A1B9A); // Ungu Tua
-const Color secondaryColor = Color(0xFFF3E5F5); // Ungu Muda
-const Color backgroundColor = Color(0xFFF5F5F5); // Abu-abu sangat muda
-const Color textColor = Color(0xFF333333); // Abu-abu tua untuk teks
-
+const Color primaryColor = Color(0xFF0D47A1); // Biru Tua
+const Color secondaryColor = Color(0xFFE3F2FD); // Biru Sangat Muda
+const Color backgroundColor = Colors.white; // Latar belakang putih
+const Color textColor = Color(0xFF333333);
+const Color accentColor = Color(0xFF4CAF50); // Hijau untuk status "On Time"
 // Style untuk Tombol Utama
 final ButtonStyle primaryButtonStyle = ElevatedButton.styleFrom(
   backgroundColor: primaryColor,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:project3/pages/splash_page.dart';
+import 'package:project3/pages/user/home_screeen.dart';
+import 'package:project3/pages/user/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +23,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.deepPurple,
         fontFamily: 'Poppins', // Anda bisa menambahkan font custom
       ),
-      home: SplashPage(),
+      home: SplashScreen(),
     );
   }
 }
