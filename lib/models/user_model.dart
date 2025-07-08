@@ -4,22 +4,27 @@ class User {
   final int id;
   final String name;
   final String email;
-  final String? profilePhotoUrl; // <-- 1. FIELD ADDED (nullable)
+  final String? gender;
+  final String? profilePhotoUrl;
+  final String? createdAt;
 
   User({
     required this.id,
     required this.name,
     required this.email,
-    this.profilePhotoUrl, // <-- 2. ADDED TO CONSTRUCTOR
+    this.gender,
+    this.profilePhotoUrl,
+    this.createdAt,
   });
 
-  // Factory constructor updated to handle the new field
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'],
-      name: json['name'],
-      email: json['email'],
-      profilePhotoUrl: json['profile_photo_url'], // <-- 3. ADDED FROM JSON
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      gender: json['jenis_kelamin'],
+      profilePhotoUrl: json['profile_photo_url'],
+      createdAt: json['created_at'],
     );
   }
 }

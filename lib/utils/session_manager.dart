@@ -8,11 +8,16 @@ class SessionManager {
   Future<void> saveSession(String token, User user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', token);
-
-    // Simpan data user juga agar mudah diakses
     await prefs.setInt('user_id', user.id);
     await prefs.setString('user_name', user.name);
     await prefs.setString('user_email', user.email);
+    // Simpan data tambahan
+    if (user.gender != null) {
+      await prefs.setString('user_gender', user.gender!);
+    }
+    if (user.profilePhotoUrl != null) {
+      await prefs.setString('user_photo', user.profilePhotoUrl!);
+    }
   }
 
   // Method untuk mengambil token

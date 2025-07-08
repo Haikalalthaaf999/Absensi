@@ -1,12 +1,13 @@
 // lib/api/api_service.dart
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // --- PERBAIKAN 1: Hapus /api dari baseUrl ---
+  // BASE URL yang benar (tanpa /api di akhir)
   static const String _baseUrl = 'https://appabsensi.mobileprojp.com';
 
-  // Helper untuk membuat headers
+  // Helper untuk membuat headers, digunakan di semua fungsi
   static Map<String, String> _getHeaders({String? token}) {
     Map<String, String> headers = {
       'Content-Type': 'application/json',
@@ -18,11 +19,8 @@ class ApiService {
     return headers;
   }
 
-  // Endpoint: /api/login
-  static Future<Map<String, dynamic>> login(
-    String email,
-    String password,
-  ) async {
+  /// Endpoint: /api/login
+  static Future<Map<String, dynamic>> login(String email, String password) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/api/login'),
       headers: _getHeaders(),
@@ -31,41 +29,37 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  // Endpoint: /api/register (Header diperbaiki & batchId opsional)
+  /// Endpoint: /api/register (Diperbarui dengan parameter lengkap)
   static Future<Map<String, dynamic>> register({
     required String name,
     required String email,
     required String password,
     required String jenisKelamin,
     required int trainingId,
-    int? batchId, // batchId dibuat nullable
-    String? profilePhoto,
+    required int batchId, // Dibuat wajib kembali sesuai API
+    String? profilePhoto, // Opsional
   }) async {
-    // Membuat body request
     Map<String, dynamic> body = {
       'name': name,
       'email': email,
       'password': password,
       'jenis_kelamin': jenisKelamin,
       'training_id': trainingId,
+      'batch_id': batchId,
     };
-    // Hanya tambahkan batch_id jika tidak null
-    if (batchId != null) {
-      body['batch_id'] = batchId;
-    }
     if (profilePhoto != null) {
       body['profile_photo'] = profilePhoto;
     }
 
     final response = await http.post(
       Uri.parse('$_baseUrl/api/register'),
-      headers: _getHeaders(), // --- PERBAIKAN 2: Gunakan helper
+      headers: _getHeaders(),
       body: jsonEncode(body),
     );
     return json.decode(response.body);
   }
 
-  // Endpoint: /api/trainings (Hapus duplikat)
+  /// Endpoint: /api/trainings (Publik)
   static Future<Map<String, dynamic>> getTrainings() async {
     final response = await http.get(
       Uri.parse('$_baseUrl/api/trainings'),
@@ -78,11 +72,11 @@ class ApiService {
     }
   }
 
-  // Endpoint: /api/batches (Hapus duplikat)
+  /// Endpoint: /api/batches (Publik, sesuai pembaruan)
   static Future<Map<String, dynamic>> getBatches() async {
     final response = await http.get(
       Uri.parse('$_baseUrl/api/batches'),
-      headers: _getHeaders(), // Dibuat publik sesuai diskusi
+      headers: _getHeaders(),
     );
     if (response.statusCode == 200) {
       return json.decode(response.body);
@@ -91,7 +85,7 @@ class ApiService {
     }
   }
 
-  // Endpoint: /api/izin (Baru)
+  /// Endpoint: /api/izin (Baru)
   static Future<Map<String, dynamic>> submitIzin({
     required String token,
     required String date,
@@ -105,7 +99,7 @@ class ApiService {
     return json.decode(response.body);
   }
 
-  // Endpoint: /api/absen/check-in
+  /// Endpoint: /api/absen/check-in
   static Future<Map<String, dynamic>> checkIn({
     required String token,
     required double latitude,
@@ -116,7 +110,7 @@ class ApiService {
       'check_in_lat': latitude.toString(),
       'check_in_lng': longitude.toString(),
       'check_in_address': address,
-      'status': 'masuk', // Status selalu 'masuk'
+      'status': 'masuk', // Status selalu 'masuk' untuk endpoint ini
     };
     final response = await http.post(
       Uri.parse('$_baseUrl/api/absen/check-in'),
@@ -126,7 +120,7 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  // Endpoint: /api/absen/check-out
+  /// Endpoint: /api/absen/check-out
   static Future<Map<String, dynamic>> checkOut({
     required String token,
     required double latitude,
@@ -145,7 +139,7 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  // Endpoint: /api/absen/today
+  /// Endpoint: /api/absen/today
   static Future<Map<String, dynamic>> getTodayAttendance(String token) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/api/absen/today'),
@@ -154,21 +148,17 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  // --- FUNGSI BARU YANG KURANG: Untuk Statistik ---
+  /// Endpoint: /api/absen/stats (Untuk statistik di HomeScreen)
   static Future<Map<String, dynamic>> getAbsenStats(String token) async {
     final response = await http.get(
-      Uri.parse('$_baseUrl/api/absen/stats'), // Endpoint yang benar
+      Uri.parse('$_baseUrl/api/absen/stats'),
       headers: _getHeaders(token: token),
     );
     return jsonDecode(response.body);
   }
 
-  // Endpoint: /api/absen/history
-  static Future<Map<String, dynamic>> getHistory(
-    String token, {
-    String? startDate,
-    String? endDate,
-  }) async {
+  /// Endpoint: /api/absen/history
+  static Future<Map<String, dynamic>> getHistory(String token, {String? startDate, String? endDate}) async {
     var uri = Uri.parse('$_baseUrl/api/absen/history');
     if (startDate != null && endDate != null) {
       uri = uri.replace(queryParameters: {'start': startDate, 'end': endDate});
