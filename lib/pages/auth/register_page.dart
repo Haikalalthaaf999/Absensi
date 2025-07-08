@@ -8,7 +8,6 @@ import 'package:project3/utils/session_manager.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
-
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
@@ -20,9 +19,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
-  // State dropdown hanya untuk training
   List<dynamic> _trainings = [];
+  List<dynamic> _batches = [];
   String? _selectedTrainingId;
+  String? _selectedBatchId;
+  String? _selectedGender; // State untuk jenis kelamin
   bool _isDataLoading = true;
 
   @override
@@ -31,13 +32,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _loadDropdownData();
   }
 
-  // Fungsi hanya memuat data training
   Future<void> _loadDropdownData() async {
+    // Panggil kedua API karena sekarang /batches sudah publik
     try {
-      final trainingResponse = await ApiService.getTrainings();
+      final responses = await Future.wait([
+        ApiService.getTrainings(),
+        ApiService.getBatches(),
+      ]);
       if (mounted) {
         setState(() {
-          _trainings = trainingResponse['data'] ?? [];
+          _trainings = responses[0]['data'] ?? [];
+          _batches = responses[1]['data'] ?? [];
           _isDataLoading = false;
         });
       }
@@ -59,19 +64,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
           name: _nameController.text,
           email: _emailController.text,
           password: _passwordController.text,
+          jenisKelamin: _selectedGender!,
           trainingId: int.parse(_selectedTrainingId!),
-          // Panggilan batchId dihapus
+          batchId: int.parse(_selectedBatchId!),
         );
 
         if (mounted && result['data'] != null) {
           final token = result['data']['token'];
           final user = User.fromJson(result['data']['user']);
           await SessionManager().saveSession(token, user);
-
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('Registrasi berhasil!')));
-
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const MainScreen()),
@@ -84,15 +88,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             );
         }
       } catch (e) {
-        if (mounted) {
+        if (mounted)
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e')));
-        }
       } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -106,78 +107,81 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
+            // Menggunakan ListView agar bisa di-scroll
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Lengkap',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) =>
-                    value!.isEmpty ? 'Nama tidak boleh kosong' : null,
+                decoration: const InputDecoration(labelText: 'Nama Lengkap'),
+                validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Email'),
                 keyboardType: TextInputType.emailAddress,
-                validator: (value) =>
-                    value!.isEmpty ? 'Email tidak boleh kosong' : null,
+                validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Password'),
                 obscureText: true,
-                validator: (value) =>
-                    value!.isEmpty ? 'Password tidak boleh kosong' : null,
+                validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
               ),
               const SizedBox(height: 24),
+              // --- Dropdown Jenis Kelamin ---
+              DropdownButtonFormField<String>(
+                value: _selectedGender,
+                hint: const Text('Pilih Jenis Kelamin'),
+                items: const [
+                  DropdownMenuItem(value: 'L', child: Text('Laki-laki')),
+                  DropdownMenuItem(value: 'P', child: Text('Perempuan')),
+                ],
+                onChanged: (value) => setState(() => _selectedGender = value),
+                validator: (value) => value == null ? 'Wajib dipilih' : null,
+              ),
+              const SizedBox(height: 16),
               if (_isDataLoading)
                 const Center(child: CircularProgressIndicator())
-              else
+              else ...[
                 DropdownButtonFormField<String>(
                   value: _selectedTrainingId,
                   hint: const Text('Pilih Jurusan Training'),
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _trainings.map((training) {
-                    return DropdownMenuItem<String>(
-                      value: training['id'].toString(),
-                      child: Text(training['title']),
-                    );
-                  }).toList(),
+                  items: _trainings
+                      .map(
+                        (t) => DropdownMenuItem<String>(
+                          value: t['id'].toString(),
+                          child: Text(t['title'] ?? 'Not Found'),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) =>
                       setState(() => _selectedTrainingId = value),
-                  validator: (value) =>
-                      value == null ? 'Pilih jurusan training' : null,
+                  validator: (value) => value == null ? 'Wajib dipilih' : null,
                 ),
-
-              // Dropdown untuk Batch sudah dihapus
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedBatchId,
+                  hint: const Text('Pilih Batch'),
+                  items: _batches
+                      .map(
+                        (b) => DropdownMenuItem<String>(
+                          value: b['id'].toString(),
+                          child: Text(b['name'] ?? 'Not Found'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setState(() => _selectedBatchId = value),
+                  validator: (value) => value == null ? 'Wajib dipilih' : null,
+                ),
+              ],
               const SizedBox(height: 32),
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _register,
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                        )
-                      : const Text('Daftar', style: TextStyle(fontSize: 16)),
-                ),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _register,
+                child: _isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text('Daftar'),
               ),
             ],
           ),

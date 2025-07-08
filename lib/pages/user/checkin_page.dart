@@ -170,15 +170,15 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  void _showReasonDialog() {
+   void _showReasonDialog() {
     final reasonController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Alasan Izin'),
+        title: const Text('Alasan Izin / Sakit'),
         content: TextField(
           controller: reasonController,
-          decoration: const InputDecoration(hintText: 'Cth: Sakit'),
+          decoration: const InputDecoration(hintText: 'Cth: Sakit demam'),
         ),
         actions: [
           TextButton(
@@ -189,7 +189,8 @@ class _MapScreenState extends State<MapScreen> {
             onPressed: () {
               if (reasonController.text.isNotEmpty) {
                 Navigator.pop(context);
-                _performAction(status: 'izin', reason: reasonController.text);
+                // Panggil fungsi submit izin yang baru
+                _submitIzin(reasonController.text);
               }
             },
             child: const Text('Kirim'),
@@ -199,6 +200,31 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  // Tambahkan fungsi baru ini
+  void _submitIzin(String reason) async {
+    if (_token == null) return;
+    setState(() => _isLoading = true);
+    try {
+      // Panggil ApiService.submitIzin yang baru
+      await ApiService.submitIzin(
+        token: _token!,
+        date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        reason: reason,
+      );
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pengajuan izin berhasil direkam!')),
+        );
+      await _loadInitialData(); // Muat ulang data
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal mengajukan izin: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
   void _performCheckOut() async {
     if (_token == null || _currentPosition == null) return;
     setState(() => _isLoading = true);
@@ -227,27 +253,45 @@ class _MapScreenState extends State<MapScreen> {
   void _performAction({required String status, String? reason}) async {
     if (_token == null || _currentPosition == null) return;
     setState(() => _isLoading = true);
+
     try {
-      await ApiService.checkIn(
-        token: _token!,
-        latitude: _currentPosition!.latitude,
-        longitude: _currentPosition!.longitude,
-        address: _currentAddress,
-        status: status,
-        reason: reason,
-      );
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Absensi ($status) berhasil direkam!')),
+      Map<String, dynamic> result;
+      // Jika statusnya 'izin', panggil API submitIzin
+      if (status == 'izin' && reason != null) {
+        result = await ApiService.submitIzin(
+          token: _token!,
+          date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          reason: reason,
         );
-      await _loadInitialData();
+      }
+      // Jika statusnya 'masuk', panggil API checkIn
+      else {
+        result = await ApiService.checkIn(
+          token: _token!,
+          latitude: _currentPosition!.latitude,
+          longitude: _currentPosition!.longitude,
+          address: _currentAddress,
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Aksi berhasil direkam!'),
+          ),
+        );
+        await _loadInitialData(); // Muat ulang data
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Gagal melakukan aksi: $e')));
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

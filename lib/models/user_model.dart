@@ -4,22 +4,22 @@ class User {
   final int id;
   final String name;
   final String email;
-  final String? createdAt; // Bisa null jika tidak selalu ada
+  final String? profilePhotoUrl; // <-- 1. FIELD ADDED (nullable)
 
   User({
     required this.id,
     required this.name,
     required this.email,
-    this.createdAt,
+    this.profilePhotoUrl, // <-- 2. ADDED TO CONSTRUCTOR
   });
 
-  // Factory constructor untuk membuat User dari JSON
+  // Factory constructor updated to handle the new field
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'],
       name: json['name'],
       email: json['email'],
-      createdAt: json['created_at'],
+      profilePhotoUrl: json['profile_photo_url'], // <-- 3. ADDED FROM JSON
     );
   }
 }

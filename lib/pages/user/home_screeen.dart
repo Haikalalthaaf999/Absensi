@@ -1,9 +1,13 @@
-// lib/screens/home_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+
+// Ganti 'project3' dengan nama project Anda jika berbeda
+import 'package:project3/api/api_service.dart';
+import 'package:project3/models/attendance_model.dart';
+import 'package:project3/models/user_model.dart';
+import 'package:project3/utils/session_manager.dart';
 
 // Definisikan warna tema
 const Color primaryColor = Color(0xFF006769);
@@ -18,6 +22,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // --- STATE MANAGEMENT & LOGIC ---
+  final SessionManager _sessionManager = SessionManager();
+
+  User? _currentUser;
+  Attendance? _todayAttendance;
+  Map<String, dynamic>? _absenStats;
+  bool _isLoading = true;
+  String? _token;
+
   late String _liveTime;
   late Timer _timer;
 
@@ -25,13 +38,53 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _liveTime = DateFormat('HH:mm').format(DateTime.now());
-    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
-      if (mounted) {
-        setState(() {
-          _liveTime = DateFormat('HH:mm').format(DateTime.now());
-        });
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (Timer t) => _updateTime(),
+    );
+    _loadData(); // Memuat data dari API saat halaman dibuka
+  }
+
+  void _updateTime() {
+    if (mounted) {
+      setState(() {
+        _liveTime = DateFormat('HH:mm').format(DateTime.now());
+      });
+    }
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      _token = await _sessionManager.getToken();
+      _currentUser = await _sessionManager.getUser();
+
+      if (_token != null) {
+        final results = await Future.wait([
+          ApiService.getTodayAttendance(_token!),
+          ApiService.getAbsenStats(
+            _token!,
+          ), // Pastikan method ini ada di ApiService
+        ]);
+
+        if (mounted) {
+          final attendanceResult = results[0];
+          final statsResult = results[1];
+
+          _todayAttendance = attendanceResult['data'] != null
+              ? Attendance.fromJson(attendanceResult['data'])
+              : null;
+          _absenStats = statsResult['data'];
+        }
       }
-    });
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal memuat data: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -43,88 +96,97 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     // Halaman ini HANYA me-return kontennya, tanpa Scaffold.
-    return Stack(
-      children: [
-        Image.asset(
-          'assets/images/Background.jpg',
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-        ),
-        SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : Stack(
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-                    _buildHeader(),
-                    const SizedBox(height: 30),
-                    _buildLiveAttendanceCard(),
-                  ],
-                ),
+              Image.asset(
+                'assets/images/Background.jpg', // Pastikan nama file dan path benar
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 24),
-                        const Text(
-                          "Your Activity",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: fontColor,
+              SafeArea(
+                child: RefreshIndicator(
+                  onRefresh: _loadData, // Fungsi untuk pull-to-refresh
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 20),
+                            _buildHeader(),
+                            const SizedBox(height: 30),
+                            _buildLiveAttendanceCard(),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20.0,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 24),
+                                const Text(
+                                  "Your Activity",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: fontColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                _buildActivitySection(),
+                                const SizedBox(height: 24),
+                                _buildStatisticsSection(),
+                                const SizedBox(height: 24),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        _buildActivitySection(),
-                        const SizedBox(height: 24),
-                        _buildStatisticsSection(),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
-          ),
-        ),
-      ],
-    );
+          );
   }
 
-  // Semua fungsi _build... di bawah ini tetap sama
+  // Widget Header dengan data dinamis
   Widget _buildHeader() {
-    return const Row(
+    return Row(
       children: [
         CircleAvatar(
           radius: 28,
+          // Ganti dengan URL foto profil jika ada di model User
           backgroundImage: NetworkImage(
-            'https://i.pinimg.com/736x/a8/7f/7b/a87f7b3b752ce0e0ac4195753e4202c5.jpg',
+            _currentUser?.profilePhotoUrl ??
+                'https://i.pinimg.com/736x/a8/7f/7b/a87f7b3b752ce0e0ac4195753e4202c5.jpg',
           ),
         ),
-        SizedBox(width: 15),
+        const SizedBox(width: 15),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Mamat",
-              style: TextStyle(
+              _currentUser?.name ?? "Nama Pengguna",
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
             Text(
-              "12345678 - Mobile Programmer",
-              style: TextStyle(fontSize: 14, color: Colors.white70),
+              _currentUser?.email ?? "email@pengguna.com",
+              style: const TextStyle(fontSize: 14, color: Colors.white70),
             ),
           ],
         ),
@@ -132,6 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Widget Kartu Live Attendance (Jam tetap live)
   Widget _buildLiveAttendanceCard() {
     return Card(
       elevation: 4,
@@ -155,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              DateFormat('EEEE, d MMMM<y_bin_46>').format(DateTime.now()),
+              DateFormat('EEEE, d MMMM').format(DateTime.now()),
               style: const TextStyle(color: Colors.grey),
             ),
             const Divider(height: 30, thickness: 1),
@@ -178,36 +241,65 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Helper untuk format waktu dari API
+  String _formatApiTime(String? dateTimeString) {
+    if (dateTimeString == null) return '--:--';
+    try {
+      return DateFormat(
+        'HH:mm a',
+      ).format(DateTime.parse(dateTimeString).toLocal());
+    } catch (e) {
+      return '--:--';
+    }
+  }
+
+  // Widget Sesi Aktivitas dengan data dinamis
   Widget _buildActivitySection() {
+    final today = DateFormat('E, d MMM').format(DateTime.now());
+    if (_todayAttendance == null) {
+      return _buildActivityTile(
+        icon: Icons.info_outline,
+        title: "Belum Ada Aktivitas",
+        subtitle: today,
+        time: "",
+        status: "Belum Absen",
+      );
+    }
+
+    if (_todayAttendance!.status == 'izin') {
+      return _buildActivityTile(
+        icon: Icons.info_outline,
+        title: "Izin",
+        subtitle: _todayAttendance!.alasanIzin ?? '',
+        time: _formatApiTime(_todayAttendance!.checkIn),
+        status: "Izin Disetujui",
+      );
+    }
+
     return Column(
       children: [
         _buildActivityTile(
           icon: Icons.fingerprint,
           title: "Check In",
-          subtitle: "Mon 04, 2024",
-          time: "09:00 am",
-          status: "On Time",
-        ),
-        const SizedBox(height: 10),
-        _buildActivityTile(
-          icon: Icons.coffee,
-          title: "Break In",
-          subtitle: "Mon 04, 2024",
-          time: "09:00 am",
+          subtitle: today,
+          time: _formatApiTime(_todayAttendance!.checkIn),
           status: "On Time",
         ),
         const SizedBox(height: 10),
         _buildActivityTile(
           icon: Icons.logout,
           title: "Check Out",
-          subtitle: "Mon 04, 2024",
-          time: "09:00 am",
-          status: "On Time",
+          subtitle: today,
+          time: _formatApiTime(_todayAttendance!.checkOut),
+          status: _todayAttendance!.checkOut != null
+              ? "Finished"
+              : "Belum Check Out",
         ),
       ],
     );
   }
 
+  // Widget template untuk setiap item aktivitas (sedikit modifikasi)
   Widget _buildActivityTile({
     required IconData icon,
     required String title,
@@ -225,27 +317,29 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Icon(icon, color: Colors.white, size: 28),
           const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
-              ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: 12,
-                ),
-              ),
-            ],
+                if (subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
           ),
-          const Spacer(),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -257,13 +351,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontSize: 16,
                 ),
               ),
-              Text(
-                status,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: 12,
+              if (status.isNotEmpty)
+                Text(
+                  status,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 12,
+                  ),
                 ),
-              ),
             ],
           ),
         ],
@@ -271,6 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Widget Statistik dengan data dinamis
   Widget _buildStatisticsSection() {
     return Column(
       children: [
@@ -282,6 +378,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSummaryCard() {
+    double percent = 0.0;
+    if (_absenStats != null && (_absenStats!['total_absen'] ?? 0) > 0) {
+      percent =
+          (_absenStats!['total_masuk'] ?? 0) / _absenStats!['total_absen'];
+    }
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -294,7 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: CircularPercentIndicator(
                 radius: 50.0,
                 lineWidth: 10.0,
-                percent: 0.98,
+                percent: percent,
                 center: const Icon(
                   Icons.pie_chart,
                   color: primaryColor,
@@ -320,51 +422,51 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "98%",
-                      style: TextStyle(
+                    Text(
+                      "${(percent * 100).toStringAsFixed(0)}%",
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 24,
                         color: accentColor,
                       ),
                     ),
                     const Divider(height: 12),
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
+                        const Text(
                           "Total Days",
                           style: TextStyle(color: Colors.grey),
                         ),
                         Text(
-                          "20",
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          _absenStats?['total_absen']?.toString() ?? '0',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
+                        const Text(
                           "Days worked",
                           style: TextStyle(color: Colors.grey),
                         ),
                         Text(
-                          "15",
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          _absenStats?['total_masuk']?.toString() ?? '0',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
+                        const Text(
                           "Total Hours",
                           style: TextStyle(color: Colors.grey),
                         ),
                         Text(
-                          "120h",
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          "...",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -385,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: _buildStatGridItem(
-                count: "15",
+                count: _absenStats?['total_masuk']?.toString() ?? '0',
                 label: "Present",
                 color: Colors.green,
               ),
@@ -393,11 +495,11 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: _buildStatGridItem(
-                count: "04",
+                count: "0",
                 label: "Early Leave",
                 color: Colors.blue,
               ),
-            ),
+            ), // Data dummy, bisa ditambah dari API jika ada
           ],
         ),
         const SizedBox(height: 12),
@@ -405,16 +507,15 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: _buildStatGridItem(
-                count: "02",
+                count: "0",
                 label: "Late",
                 color: Colors.orange,
               ),
-            ),
-            const SizedBox(width: 12),
+            ), // Data dummy, bisa ditambah dari API jika ada
             Expanded(
               child: _buildStatGridItem(
-                count: "01",
-                label: "Absents",
+                count: _absenStats?['total_izin']?.toString() ?? '0',
+                label: "Absents/Izin",
                 color: Colors.red,
               ),
             ),
@@ -476,3 +577,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+// Catatan: Pastikan model User Anda memiliki field `profilePhotoUrl`
+// atau sesuaikan dengan nama field foto profil yang ada.
