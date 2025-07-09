@@ -7,6 +7,8 @@ import 'package:project3/custom/bottom.dart';
 import 'package:project3/pages/user/checkin_page.dart';
 import 'package:project3/pages/user/history_page.dart';
 import 'package:project3/pages/user/home_screeen.dart';
+import 'package:project3/pages/user/profile.dart';
+
 
 
 // Definisikan warna tema
@@ -28,8 +30,8 @@ class _MainScreenState extends State<MainScreen> {
   static const List<Widget> _widgetOptions = <Widget>[
     HomeScreen(),
     MapScreen(),
-    HistoryScreen(),
-    PlaceholderWidget(color: Colors.purple, title: 'Profile'),
+    HistoryPage(),
+    ProfileScreen(),
   ];
 
   // Fungsi untuk mengubah halaman saat navigasi ditekan

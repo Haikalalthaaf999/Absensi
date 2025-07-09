@@ -45,6 +45,7 @@ dependencies:
   google_maps_flutter: ^2.12.3
   lottie: ^3.0.0
   percent_indicator: ^4.2.3
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

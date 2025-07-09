@@ -5,6 +5,7 @@ import 'package:project3/api/api_service.dart';
 import 'package:project3/models/user_model.dart';
 import 'package:project3/pages/user/home_screeen.dart';
 import 'package:project3/pages/auth/register_page.dart'; // Import halaman registrasi
+import 'package:project3/pages/user/main_screen.dart';
 import 'package:project3/utils/session_manager.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -52,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // Navigasi ke HomeScreen
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            MaterialPageRoute(builder: (context) => const MainScreen()),
           );
         } else {
           // Tampilkan pesan error dari API jika ada
@@ -194,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const RegisterScreen(),
+                              builder: (context) => const RegisterPage(),
                             ),
                           );
                         },

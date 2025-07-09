@@ -2,6 +2,8 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:project3/models/batch_model.dart';
+import 'package:project3/models/training_model.dart';
 
 class ApiService {
   // BASE URL yang benar (tanpa /api di akhir)
@@ -17,6 +19,43 @@ class ApiService {
       headers['Authorization'] = 'Bearer $token';
     }
     return headers;
+  }
+
+  /// Endpoint: /api/profile (Untuk mengambil data user terbaru)
+ static Future<Map<String, dynamic>> getProfile(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/api/profile'), // Ganti '/user' dengan endpoint profil Anda
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        // Mengembalikan pesan error dari server jika ada
+        final errorData = json.decode(response.body);
+        return {'message': errorData['message'] ?? 'Gagal memuat profil'};
+      }
+    } catch (e) {
+      return {'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  /// Endpoint: /api/profile/photo (Untuk update foto profil)
+  static Future<Map<String, dynamic>> updateProfilePhoto({
+    required String token,
+    required String base64Photo,
+  }) async {
+    final body = {'profile_photo': 'data:image/png;base64,$base64Photo'};
+    final response = await http.put(
+      Uri.parse('$_baseUrl/api/profile/photo'),
+      headers: _getHeaders(token: token),
+      body: jsonEncode(body),
+    );
+    return json.decode(response.body);
   }
 
   /// Endpoint: /api/login
@@ -59,27 +98,30 @@ class ApiService {
     return json.decode(response.body);
   }
 
-  /// Endpoint: /api/trainings (Publik)
-  static Future<Map<String, dynamic>> getTrainings() async {
+  // --- FUNGSI GETTRAININGS DIPERBARUI ---
+  static Future<ListJurusan> getTrainings() async {
     final response = await http.get(
       Uri.parse('$_baseUrl/api/trainings'),
-      headers: _getHeaders(),
+      headers: {'Accept': 'application/json'},
     );
+
     if (response.statusCode == 200) {
-      return json.decode(response.body);
+      // Langsung parse JSON menjadi objek ListJurusan
+      return listJurusanFromJson(response.body);
     } else {
       throw Exception('Gagal memuat data training');
     }
   }
 
   /// Endpoint: /api/batches (Publik, sesuai pembaruan)
-  static Future<Map<String, dynamic>> getBatches() async {
+  static Future<BatchResponse> getBatches() async {
     final response = await http.get(
       Uri.parse('$_baseUrl/api/batches'),
       headers: _getHeaders(),
     );
     if (response.statusCode == 200) {
-      return json.decode(response.body);
+      // Langsung parse JSON menjadi objek BatchResponse
+      return batchResponseFromJson(response.body);
     } else {
       throw Exception('Gagal memuat data batch');
     }
@@ -166,4 +208,22 @@ class ApiService {
     final response = await http.get(uri, headers: _getHeaders(token: token));
     return jsonDecode(response.body);
   }
+
+  static Future<Map<String, dynamic>> deleteAttendance({
+    required String token,
+    required int id,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/api/absen/$id'),
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+    );
+
+    final data = json.decode(response.body);
+    if (response.statusCode == 200) {
+      return data;
+    } else {
+      throw Exception(data['message'] ?? 'Gagal menghapus data absen');
+    }
+  }
 }
+

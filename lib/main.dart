@@ -1,13 +1,13 @@
+// lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:project3/pages/splash_page.dart';
-import 'package:project3/pages/user/home_screeen.dart';
-import 'package:project3/pages/user/main_screen.dart';
+import 'package:project3/pages/user/profile.dart'; // ⬅️ Tambahkan ini jika pakai pushNamed
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Inisialisasi locale untuk format tanggal Indonesia
-  await initializeDateFormatting('id_ID', null); 
+  await initializeDateFormatting('id_ID', null); // Format tanggal lokal
   runApp(const MyApp());
 }
 
@@ -19,11 +19,14 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aplikasi Absensi',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-        fontFamily: 'Poppins', // Anda bisa menambahkan font custom
-      ),
-      home: SplashScreen(),
+      theme: ThemeData(primarySwatch: Colors.deepPurple, fontFamily: 'Poppins'),
+      home: const SplashScreen(),
+
+      // ✅ Tambahkan semua named routes di sini
+      routes: {
+        '/user': (context) => const ProfileScreen(),
+        // Tambahkan rute lain di sini jika diperlukan
+      },
     );
   }
 }

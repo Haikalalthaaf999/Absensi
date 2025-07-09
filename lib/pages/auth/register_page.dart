@@ -1,29 +1,36 @@
-// lib/screens/register_screen.dart
+// lib/pages/auth/register_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:project3/api/api_service.dart';
-import 'package:project3/models/user_model.dart';
-import 'package:project3/pages/user/main_screen.dart';
-import 'package:project3/utils/session_manager.dart';
 
-class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+// Sesuaikan path ini dengan struktur proyek Anda
+import 'package:project3/api/api_service.dart';
+import 'package:project3/pages/auth/login_page.dart';
+import '../../models/batch_model.dart';
+import '../../models/training_model.dart';
+import '../../models/user_model.dart';
+import '../../utils/session_manager.dart';
+
+
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
+
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
-  List<dynamic> _trainings = [];
-  List<dynamic> _batches = [];
+  // --- State untuk Dropdown (sudah menggunakan model) ---
+  List<Datum> _trainings = [];
+  List<BatchData> _batches = [];
   String? _selectedTrainingId;
   String? _selectedBatchId;
-  String? _selectedGender; // State untuk jenis kelamin
+  String? _selectedGender;
   bool _isDataLoading = true;
 
   @override
@@ -32,17 +39,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _loadDropdownData();
   }
 
+  // Fungsi untuk memuat data dari API menggunakan model
   Future<void> _loadDropdownData() async {
-    // Panggil kedua API karena sekarang /batches sudah publik
     try {
-      final responses = await Future.wait([
-        ApiService.getTrainings(),
-        ApiService.getBatches(),
-      ]);
+      final trainingFuture = ApiService.getTrainings();
+      final batchFuture = ApiService.getBatches();
+
+      final results = await Future.wait([trainingFuture, batchFuture]);
+
+      final trainingResponse = results[0] as ListJurusan;
+      final batchResponse = results[1] as BatchResponse;
+
       if (mounted) {
         setState(() {
-          _trainings = responses[0]['data'] ?? [];
-          _batches = responses[1]['data'] ?? [];
+          _trainings = trainingResponse.data;
+          _batches = batchResponse.data ?? [];
           _isDataLoading = false;
         });
       }
@@ -56,6 +67,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  // Fungsi untuk mengirim data registrasi
   void _register() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
@@ -73,12 +85,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           final token = result['data']['token'];
           final user = User.fromJson(result['data']['user']);
           await SessionManager().saveSession(token, user);
+
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('Registrasi berhasil!')));
+
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => const MainScreen()),
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
             (route) => false,
           );
         } else {
@@ -88,10 +102,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             );
         }
       } catch (e) {
-        if (mounted)
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Terjadi kesalahan saat registrasi: $e')),
+          );
+        }
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
@@ -107,32 +122,42 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            // Menggunakan ListView agar bisa di-scroll
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Nama Lengkap'),
+                decoration: const InputDecoration(
+                  labelText: 'Nama Lengkap',
+                  border: OutlineInputBorder(),
+                ),
                 validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(),
+                ),
                 obscureText: true,
                 validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
               ),
               const SizedBox(height: 24),
-              // --- Dropdown Jenis Kelamin ---
+
+              // Dropdown Jenis Kelamin
               DropdownButtonFormField<String>(
                 value: _selectedGender,
                 hint: const Text('Pilih Jenis Kelamin'),
+                decoration: const InputDecoration(border: OutlineInputBorder()),
                 items: const [
                   DropdownMenuItem(value: 'L', child: Text('Laki-laki')),
                   DropdownMenuItem(value: 'P', child: Text('Perempuan')),
@@ -141,47 +166,71 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: (value) => value == null ? 'Wajib dipilih' : null,
               ),
               const SizedBox(height: 16),
+
+              // Tampilkan loading atau dropdown
               if (_isDataLoading)
-                const Center(child: CircularProgressIndicator())
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
               else ...[
+                // Dropdown Jurusan/Training
                 DropdownButtonFormField<String>(
                   value: _selectedTrainingId,
                   hint: const Text('Pilih Jurusan Training'),
-                  items: _trainings
-                      .map(
-                        (t) => DropdownMenuItem<String>(
-                          value: t['id'].toString(),
-                          child: Text(t['title'] ?? 'Not Found'),
-                        ),
-                      )
-                      .toList(),
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _trainings.map((Datum training) {
+                    return DropdownMenuItem<String>(
+                      value: training.id.toString(),
+                      child: Text(training.title),
+                    );
+                  }).toList(),
                   onChanged: (value) =>
                       setState(() => _selectedTrainingId = value),
                   validator: (value) => value == null ? 'Wajib dipilih' : null,
                 ),
                 const SizedBox(height: 16),
+
+                // Dropdown Batch
                 DropdownButtonFormField<String>(
                   value: _selectedBatchId,
                   hint: const Text('Pilih Batch'),
-                  items: _batches
-                      .map(
-                        (b) => DropdownMenuItem<String>(
-                          value: b['id'].toString(),
-                          child: Text(b['name'] ?? 'Not Found'),
-                        ),
-                      )
-                      .toList(),
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _batches.map((BatchData batch) {
+                    return DropdownMenuItem<String>(
+                      value: batch.id.toString(),
+                      child: Text(batch.batchKe ?? 'Batch tidak bernama'),
+                    );
+                  }).toList(),
                   onChanged: (value) =>
                       setState(() => _selectedBatchId = value),
                   validator: (value) => value == null ? 'Wajib dipilih' : null,
                 ),
               ],
               const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _register,
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : const Text('Daftar'),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _register,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
+                      : const Text('Daftar', style: TextStyle(fontSize: 16)),
+                ),
               ),
             ],
           ),

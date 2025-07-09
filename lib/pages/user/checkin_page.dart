@@ -4,15 +4,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+
+
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 
-// Ganti 'project3' dengan nama project Anda jika berbeda
 import 'package:project3/api/api_service.dart';
 import 'package:project3/models/attendance_model.dart';
 import 'package:project3/utils/session_manager.dart';
 
-// Definisikan warna tema
 const Color primaryColor = Color(0xFF006769);
 const Color accentColor = Color(0xFF40A578);
 
@@ -28,15 +28,13 @@ class _MapScreenState extends State<MapScreen> {
       Completer<GoogleMapController>();
   final SessionManager _sessionManager = SessionManager();
 
-  // State untuk data dan logika
   bool _isLoading = true;
   String? _token;
   Position? _currentPosition;
   String _currentAddress = "Memuat alamat...";
   Attendance? _todayAttendance;
 
-  // Ganti dengan koordinat kantor Anda
-  final LatLng _officePosition = const LatLng(-6.200000, 106.816666);
+  final LatLng _officePosition = const LatLng(-6.2109, 106.8129);
   double _distanceFromOffice = 0.0;
   final Set<Marker> _markers = {};
 
@@ -46,17 +44,34 @@ class _MapScreenState extends State<MapScreen> {
     _loadInitialData();
   }
 
+  // PERBAIKAN UTAMA: Logika baru untuk memuat data
   Future<void> _loadInitialData() async {
-    setState(() => _isLoading = true);
+    if (!mounted) return;
+    if (!_isLoading) {
+      setState(() => _isLoading = true);
+    }
+
     try {
       _token = await _sessionManager.getToken();
       if (_token == null) return;
 
-      final attendanceResult = await ApiService.getTodayAttendance(_token!);
-      if (mounted && attendanceResult['data'] != null) {
-        _todayAttendance = Attendance.fromJson(attendanceResult['data']);
+      // 1. Cek data lokal terlebih dahulu
+      final localAttendance = await _sessionManager
+          .getTodayAttendanceFromLocal();
+      if (localAttendance != null) {
+        if (mounted) {
+          setState(() {
+            _todayAttendance = localAttendance;
+          });
+        }
       } else {
-        _todayAttendance = null;
+        // 2. Jika tidak ada data lokal, baru panggil API
+        final attendanceResult = await ApiService.getTodayAttendance(_token!);
+        if (mounted && attendanceResult['data'] != null) {
+          _todayAttendance = Attendance.fromJson(attendanceResult['data']);
+        } else {
+          _todayAttendance = null;
+        }
       }
 
       await _getCurrentLocation();
@@ -162,7 +177,7 @@ class _MapScreenState extends State<MapScreen> {
             child: const Text('Hadir (Check In)'),
             onPressed: () {
               Navigator.pop(context);
-              _performAction(status: 'masuk');
+              _performCheckIn();
             },
           ),
         ],
@@ -170,7 +185,7 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-   void _showReasonDialog() {
+  void _showReasonDialog() {
     final reasonController = TextEditingController();
     showDialog(
       context: context,
@@ -189,7 +204,6 @@ class _MapScreenState extends State<MapScreen> {
             onPressed: () {
               if (reasonController.text.isNotEmpty) {
                 Navigator.pop(context);
-                // Panggil fungsi submit izin yang baru
                 _submitIzin(reasonController.text);
               }
             },
@@ -200,22 +214,27 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  // Tambahkan fungsi baru ini
+  // PERBAIKAN: Fungsi-fungsi ini sekarang akan menyimpan data ke lokal
   void _submitIzin(String reason) async {
     if (_token == null) return;
     setState(() => _isLoading = true);
     try {
-      // Panggil ApiService.submitIzin yang baru
-      await ApiService.submitIzin(
+      final result = await ApiService.submitIzin(
         token: _token!,
         date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
         reason: reason,
       );
-      if (mounted)
+      if (mounted) {
+        await _sessionManager.saveTodayAttendance(result['data']);
+        setState(() {
+          _todayAttendance = Attendance.fromJson(result['data']);
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pengajuan izin berhasil direkam!')),
+          SnackBar(
+            content: Text(result['message'] ?? 'Pengajuan izin berhasil!'),
+          ),
         );
-      await _loadInitialData(); // Muat ulang data
+      }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(
@@ -225,21 +244,26 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
   void _performCheckOut() async {
     if (_token == null || _currentPosition == null) return;
     setState(() => _isLoading = true);
     try {
-      await ApiService.checkOut(
+      final result = await ApiService.checkOut(
         token: _token!,
         latitude: _currentPosition!.latitude,
         longitude: _currentPosition!.longitude,
         address: _currentAddress,
       );
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Berhasil Check Out!')));
-      await _loadInitialData();
+      if (mounted) {
+        await _sessionManager.saveTodayAttendance(result['data']);
+        setState(() {
+          _todayAttendance = Attendance.fromJson(result['data']);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Berhasil Check Out!')),
+        );
+      }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(
@@ -250,43 +274,30 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _performAction({required String status, String? reason}) async {
+  void _performCheckIn() async {
     if (_token == null || _currentPosition == null) return;
     setState(() => _isLoading = true);
-
     try {
-      Map<String, dynamic> result;
-      // Jika statusnya 'izin', panggil API submitIzin
-      if (status == 'izin' && reason != null) {
-        result = await ApiService.submitIzin(
-          token: _token!,
-          date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
-          reason: reason,
-        );
-      }
-      // Jika statusnya 'masuk', panggil API checkIn
-      else {
-        result = await ApiService.checkIn(
-          token: _token!,
-          latitude: _currentPosition!.latitude,
-          longitude: _currentPosition!.longitude,
-          address: _currentAddress,
-        );
-      }
-
+      final result = await ApiService.checkIn(
+        token: _token!,
+        latitude: _currentPosition!.latitude,
+        longitude: _currentPosition!.longitude,
+        address: _currentAddress,
+      );
       if (mounted) {
+        await _sessionManager.saveTodayAttendance(result['data']);
+        setState(() {
+          _todayAttendance = Attendance.fromJson(result['data']);
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Aksi berhasil direkam!'),
-          ),
+          SnackBar(content: Text(result['message'] ?? 'Check In Berhasil!')),
         );
-        await _loadInitialData(); // Muat ulang data
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Gagal melakukan aksi: $e')));
+        ).showSnackBar(SnackBar(content: Text('Gagal Check In: $e')));
       }
     } finally {
       if (mounted) {
@@ -294,6 +305,8 @@ class _MapScreenState extends State<MapScreen> {
       }
     }
   }
+
+  // Sisa kode build UI tidak perlu diubah.
 
   @override
   Widget build(BuildContext context) {
@@ -330,7 +343,8 @@ class _MapScreenState extends State<MapScreen> {
           children: [
             _buildCircleButton(
               icon: Icons.arrow_back,
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () =>
+                  Navigator.of(context).pop(true), // Kirim sinyal refresh
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -394,7 +408,7 @@ class _MapScreenState extends State<MapScreen> {
     bool isButtonEnabled = true;
 
     if (_todayAttendance?.status == 'izin') {
-      statusText = 'Izin (${_todayAttendance!.alasanIzin})';
+      statusText = 'Izin (${_todayAttendance!.reason})';
       buttonText = 'Anda Sedang Izin';
       statusColor = Colors.orange;
       isButtonEnabled = false;
