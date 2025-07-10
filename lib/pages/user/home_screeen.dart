@@ -56,7 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // PERBAIKAN UTAMA: Logika baru untuk memuat data
   Future<void> _loadData() async {
     if (!mounted) return;
     if (!_isLoading) {
@@ -65,33 +64,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final token = await _sessionManager.getToken();
+      // Ambil data user dari sesi, yang sudah disimpan saat login/update profile
       _currentUser = await _sessionManager.getUser();
 
       if (token == null) {
         throw Exception("Sesi tidak valid, silakan login kembali.");
       }
 
-      // 1. Cek data lokal terlebih dahulu
-      final localAttendance = await _sessionManager
-          .getTodayAttendanceFromLocal();
-
-      if (localAttendance != null) {
-        if (mounted) {
-          setState(() {
-            _todayAttendance = localAttendance;
-          });
-        }
-      } else {
-        // 2. Jika tidak ada data lokal, baru panggil API
-        final attendanceResult = await ApiService.getTodayAttendance(token);
-        if (mounted && attendanceResult['data'] != null) {
+      // Ambil data presensi hari ini
+      final attendanceResult = await ApiService.getTodayAttendance(token);
+      if (mounted) {
+        if (attendanceResult['data'] != null) {
           _todayAttendance = Attendance.fromJson(attendanceResult['data']);
         } else {
           _todayAttendance = null;
         }
       }
 
-      // Selalu panggil statistik dari API untuk data terbaru
+      // Ambil data statistik presensi
       final statsResult = await ApiService.getAbsenStats(token);
       if (mounted &&
           statsResult['data'] != null &&
@@ -109,16 +99,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // PERBAIKAN: Fungsi navigasi yang akan me-refresh setelah kembali
-  void _navigateToMapScreen() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const MapScreen()),
-    );
-    // Panggil _loadData setelah kembali dari MapScreen untuk memastikan sinkronisasi
-    _loadData();
-  }
-
   @override
   void dispose() {
     _timer.cancel();
@@ -128,15 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // PERBAIKAN: Ganti FloatingActionButton untuk navigasi
-      floatingActionButton: FloatingActionButton(
-        onPressed: _navigateToMapScreen,
-        backgroundColor: accentColor,
-        child: const Icon(Icons.location_on, color: Colors.white),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
-      // ... (sisa UI Anda, termasuk BottomNavigationBar)
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Stack(
@@ -154,6 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     key: _refreshIndicatorKey,
                     onRefresh: _loadData,
                     child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(horizontal: 20.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             ),
-                          const SizedBox(height: 80), // Beri ruang untuk FAB
+                          const SizedBox(height: 80),
                         ],
                       ),
                     ),
@@ -205,34 +177,59 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         CircleAvatar(
           radius: 28,
-          backgroundColor: Colors.white,
-          child: CircleAvatar(
-            radius: 26,
-            backgroundImage: _currentUser?.profilePhotoUrl != null
-                ? NetworkImage(_currentUser!.profilePhotoUrl!)
-                : null,
-            child: _currentUser?.profilePhotoUrl == null
-                ? const Icon(Icons.person, size: 30, color: Colors.grey)
-                : null,
+          backgroundColor: Colors.white24,
+          child: ClipOval(
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              // PERBAIKAN DI SINI: Gunakan getter 'fullProfilePhotoUrl' dari model User
+              child: (_currentUser?.fullProfilePhotoUrl != null)
+                  ? Image.network(
+                      _currentUser!.fullProfilePhotoUrl!,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        // Jika gagal, tampilkan ikon default
+                        return const Icon(
+                          Icons.person,
+                          size: 30,
+                          color: Colors.white70,
+                        );
+                      },
+                    )
+                  : const Icon(Icons.person, size: 30, color: Colors.white70),
+            ),
           ),
         ),
         const SizedBox(width: 15),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _currentUser?.name ?? "Nama Pengguna",
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _currentUser?.name ?? "Nama Pengguna",
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            Text(
-              _currentUser?.email ?? "email@pengguna.com",
-              style: const TextStyle(fontSize: 14, color: Colors.white70),
-            ),
-          ],
+              Text(
+                _currentUser?.email ?? "email@pengguna.com",
+                style: const TextStyle(fontSize: 14, color: Colors.white70),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -265,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              DateFormat('EEEE, d MMMM').format(DateTime.now()),
+              DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
               style: const TextStyle(color: Colors.white70),
             ),
             const Divider(height: 30, thickness: 1, color: Colors.white24),
@@ -281,17 +278,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-  }
-
-  String _formatApiTime(String? dateTimeString) {
-    if (dateTimeString == null) return '--:--';
-    try {
-      return DateFormat(
-        'HH:mm',
-      ).format(DateTime.parse(dateTimeString).toLocal());
-    } catch (e) {
-      return '--:--';
-    }
   }
 
   Widget _buildActivitySection() {
@@ -312,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.info_outline,
         title: "Izin",
         subtitle: _todayAttendance!.reason ?? 'Alasan tidak tersedia',
-        time: _formatApiTime(_todayAttendance!.date.toIso8601String()),
+        time: "",
         status: "Izin Disetujui",
       );
     }
@@ -324,7 +310,8 @@ class _HomeScreenState extends State<HomeScreen> {
           title: "Check In",
           subtitle: today,
           time: _todayAttendance!.checkIn ?? '--:--',
-          status: "On Time",
+          status:
+              "On Time", // Anda bisa menambahkan logika untuk 'Late' di sini
         ),
         const SizedBox(height: 10),
         _buildActivityTile(
@@ -462,6 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               flex: 3,
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     "${(percent * 100).toStringAsFixed(0)}%",
@@ -492,7 +480,7 @@ class _HomeScreenState extends State<HomeScreen> {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1.5,
+      childAspectRatio: 1.8,
       children: [
         _buildStatGridItem(
           count: (_absenStats['total_hadir']?.toString()) ?? '0',
@@ -505,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Colors.red,
         ),
         _buildStatGridItem(
-          count: "0",
+          count: "0", // Data belum tersedia dari API
           label: "Early Leave",
           color: Colors.blue,
         ),
@@ -533,29 +521,24 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Colors.white,
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    count,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                  Text(
-                    label,
-                    style: const TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                ],
+              Text(
+                count,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
-              Icon(Icons.chevron_right, color: Colors.grey.shade400),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
+              ),
             ],
           ),
         ),

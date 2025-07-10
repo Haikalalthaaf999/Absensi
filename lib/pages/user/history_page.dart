@@ -42,6 +42,7 @@ class _HistoryPageState extends State<HistoryPage> {
       if (filter == 'All') {
         _filteredHistory = _allHistory;
       } else {
+        // Gabungkan 'izin' dan 'sakit' ke dalam filter 'Absent'
         if (filter == 'Absent') {
           _filteredHistory = _allHistory
               .where(
@@ -127,7 +128,6 @@ class _HistoryPageState extends State<HistoryPage> {
     _loadHistory();
   }
 
-  // BARU: Fungsi untuk menangani penghapusan data absensi
   Future<void> _deleteAttendanceItem(int id) async {
     final token = await _sessionManager.getToken();
     if (token == null) {
@@ -142,7 +142,6 @@ class _HistoryPageState extends State<HistoryPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result['message'] ?? 'Data berhasil dihapus')),
       );
-      // Muat ulang data setelah berhasil menghapus
       await _loadHistory();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -155,14 +154,11 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("My Attendance"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        // PERBAIKAN: Menambahkan judul
+        title: const Text('Riwayat Absensi'),
+        automaticallyImplyLeading: false,
+        centerTitle: true,
         elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
       ),
       body: Column(
         children: [
@@ -205,23 +201,21 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _buildFilterChips() {
-    // ... (kode filter chips tidak berubah)
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
           _buildFilterChip("All"),
-          _buildFilterChip("Early Leave"),
-          _buildFilterChip("Late In"),
-          _buildFilterChip("Absent"),
+          _buildFilterChip("Masuk"),
+          _buildFilterChip("Terlambat"),
+          _buildFilterChip("Absent"), // Ini sudah menghandle 'izin' dan 'sakit'
         ],
       ),
     );
   }
 
   Widget _buildFilterChip(String label) {
-    // ... (kode filter chip tidak berubah)
     final bool isActive = _activeFilter == label;
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
@@ -268,11 +262,9 @@ class _HistoryPageState extends State<HistoryPage> {
       itemCount: _filteredHistory.length,
       itemBuilder: (context, index) {
         final item = _filteredHistory[index];
-        // BARU: Bungkus _buildHistoryCard dengan Dismissible
         return Dismissible(
-          key: Key(item.id.toString()), // Key unik untuk setiap item
-          direction:
-              DismissDirection.endToStart, // Arah geser dari kanan ke kiri
+          key: Key(item.id.toString()),
+          direction: DismissDirection.endToStart,
           background: Container(
             color: Colors.red,
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -280,7 +272,6 @@ class _HistoryPageState extends State<HistoryPage> {
             child: const Icon(Icons.delete, color: Colors.white),
           ),
           confirmDismiss: (direction) async {
-            // BARU: Tampilkan dialog konfirmasi sebelum menghapus
             return await showDialog(
               context: context,
               builder: (BuildContext context) {
@@ -304,9 +295,7 @@ class _HistoryPageState extends State<HistoryPage> {
             );
           },
           onDismissed: (direction) {
-            // BARU: Panggil fungsi hapus setelah dikonfirmasi
             _deleteAttendanceItem(item.id);
-            // Hapus item dari UI secara sementara
             setState(() {
               _allHistory.removeWhere((element) => element.id == item.id);
               _filteredHistory.removeAt(index);
@@ -315,44 +304,11 @@ class _HistoryPageState extends State<HistoryPage> {
           child: _buildHistoryCard(item),
         );
       },
-      separatorBuilder: (context, index) {
-        final currentItem = _filteredHistory[index];
-        if (currentItem.date.weekday == DateTime.saturday ||
-            currentItem.date.weekday == DateTime.sunday) {
-          return _buildWeekendSeparator(currentItem.date);
-        }
-        return const SizedBox.shrink();
-      },
-    );
-  }
-
-  Widget _buildWeekendSeparator(DateTime date) {
-    // ... (kode pemisah akhir pekan tidak berubah)
-    String message = date.weekday == DateTime.saturday
-        ? "Weekend: ${DateFormat('d MMM').format(date)} Sat"
-        : "Weekend: ${DateFormat('d MMM').format(date)} Sun";
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Text(
-          message,
-          style: const TextStyle(
-            color: Colors.red,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
     );
   }
 
   Widget _buildHistoryCard(Attendance item) {
-    // ... (kode kartu absensi tidak berubah)
     String workingHours = '--h --m';
     if (item.checkIn != null && item.checkOut != null) {
       try {
@@ -393,28 +349,29 @@ class _HistoryPageState extends State<HistoryPage> {
             child: Column(
               children: [
                 Text(
-                  DateFormat('dd').format(item.date),
+                  DateFormat('dd').format(DateTime.parse(item.date)),
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  DateFormat('E').format(item.date), // E.g., Thu
+                  DateFormat('E').format(DateTime.parse(item.date)),
                   style: const TextStyle(fontSize: 12),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          // Kolom Jam
+          // Kolom Jam & Durasi
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildTimeColumn("Clock in", item.checkIn),
-                _buildTimeColumn("Clock out", item.checkOut),
-                _buildTimeColumn("Working hrs", workingHours, isDuration: true),
+                _buildTimeColumn("Check In", item.checkIn),
+                _buildTimeColumn("Check Out", item.checkOut),
+                // PERBAIKAN: Menampilkan kolom durasi
+                _buildTimeColumn("Duration", workingHours, isDuration: true),
               ],
             ),
           ),
@@ -431,7 +388,6 @@ class _HistoryPageState extends State<HistoryPage> {
     String? time, {
     bool isDuration = false,
   }) {
-    // ... (kode kolom waktu tidak berubah)
     return Column(
       children: [
         Icon(
@@ -453,7 +409,6 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _buildStatusChip(String status) {
-    // ... (kode chip status tidak berubah)
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -461,7 +416,7 @@ class _HistoryPageState extends State<HistoryPage> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status.toUpperCase(), // Ubah jadi uppercase agar konsisten
+        status.toUpperCase(),
         style: const TextStyle(
           color: Colors.white,
           fontSize: 12,
@@ -472,7 +427,6 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Color _getStatusColor(String status) {
-    // ... (kode warna status tidak berubah)
     switch (status.toLowerCase()) {
       case 'masuk':
       case 'present':

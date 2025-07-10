@@ -3,10 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:project3/api/api_service.dart';
 import 'package:project3/models/user_model.dart';
-import 'package:project3/pages/user/home_screeen.dart';
-import 'package:project3/pages/auth/register_page.dart'; // Import halaman registrasi
+import 'package:project3/pages/auth/register_page.dart';
 import 'package:project3/pages/user/main_screen.dart';
 import 'package:project3/utils/session_manager.dart';
+
+// Import Firebase Messaging jika Anda menggunakannya
+// import 'package:firebase_messaging/firebase_messaging.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +25,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _isPasswordVisible = false;
+  String? _deviceToken;
+
+  @override
+  void initState() {
+    super.initState();
+    _getDeviceToken();
+  }
+
+  // Fungsi untuk mendapatkan device token
+  Future<void> _getDeviceToken() async {
+    // Untuk tujuan pengembangan, kita bisa gunakan nilai dummy
+    if (mounted) {
+      setState(() {
+        _deviceToken = 'dummy_device_token_for_testing';
+      });
+    }
+  }
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
@@ -34,29 +53,27 @@ class _LoginScreenState extends State<LoginScreen> {
         final apiResponse = await ApiService.login(
           _emailController.text,
           _passwordController.text,
+          // PERBAIKAN: Kirim nilai dari variabel, bukan fungsinya
+          _deviceToken!,
         );
 
-        // Cek apakah response mengandung data yang diharapkan
         if (mounted &&
             apiResponse['data'] != null &&
             apiResponse['data']['token'] != null) {
           final token = apiResponse['data']['token'];
           final user = User.fromJson(apiResponse['data']['user']);
 
-          // Simpan sesi
           await _sessionManager.saveSession(token, user);
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Login berhasil! Halo, ${user.name}')),
           );
 
-          // Navigasi ke HomeScreen
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const MainScreen()),
           );
         } else {
-          // Tampilkan pesan error dari API jika ada
           final message =
               apiResponse['message'] ??
               'Login gagal. Periksa kembali email dan password Anda.';
@@ -102,7 +119,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header
                   const Text(
                     'Selamat Datang',
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
@@ -115,8 +131,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
-
-                  // Form Email
                   TextFormField(
                     controller: _emailController,
                     decoration: const InputDecoration(
@@ -136,8 +150,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Form Password
                   TextFormField(
                     controller: _passwordController,
                     obscureText: !_isPasswordVisible,
@@ -166,8 +178,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-
-                  // Tombol Login
                   _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : ElevatedButton(
@@ -184,8 +194,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                   const SizedBox(height: 20),
-
-                  // Link ke Halaman Registrasi
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

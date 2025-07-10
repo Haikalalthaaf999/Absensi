@@ -3,10 +3,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-// Sesuaikan path import dengan struktur proyek Anda
 import 'package:project3/api/api_service.dart';
 import 'package:project3/models/user_model.dart';
 import 'package:project3/pages/auth/login_page.dart';
+import 'package:project3/pages/user/edit_profil.dart';
+
 import 'package:project3/utils/session_manager.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -28,7 +29,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserData();
   }
 
-  // Fungsi untuk memuat data profil lengkap dari API
   Future<void> _loadUserData() async {
     if (!mounted) return;
     setState(() {
@@ -39,38 +39,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final token = await _sessionManager.getToken();
       if (token == null) {
-        _logout(); // Jika tidak ada token, langsung logout
+        _logout();
         return;
       }
 
-      // Panggil API untuk mendapatkan data profil terbaru dan terlengkap
       final result = await ApiService.getProfile(token);
 
       if (mounted) {
         if (result['data'] != null) {
-          // Buat objek User dari data baru yang lebih lengkap
           final user = User.fromJson(result['data']);
-
-          // Simpan kembali user yang sudah lengkap ke session
           await _sessionManager.saveUser(user);
-
           setState(() {
             _currentUser = user;
             _isLoading = false;
           });
         } else {
-          // Jika gagal, coba tampilkan data dari session lokal sebagai fallback
           final localUser = await _sessionManager.getUser();
           setState(() {
             _currentUser = localUser;
             _isLoading = false;
-            _errorMessage = result['message'] ?? 'Gagal memuat data terbaru.';
+            _errorMessage = result['message'] ?? 'Gagal memuat data.';
           });
         }
       }
     } catch (e) {
       if (mounted) {
+        final localUser = await _sessionManager.getUser();
         setState(() {
+          _currentUser = localUser;
           _isLoading = false;
           _errorMessage = 'Terjadi kesalahan jaringan: $e';
         });
@@ -83,9 +79,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(
-          builder: (context) => const LoginScreen(),
-        ), // Pastikan nama halaman login benar
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
         (route) => false,
       );
     }
@@ -97,9 +91,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (image != null) {
       final bytes = await image.readAsBytes();
-      // Format base64 yang umum diterima API
-      final String base64Image =
-          'data:image/${image.path.split('.').last};base64,${base64Encode(bytes)}';
+      final String base64Image = base64Encode(bytes);
 
       if (!mounted) return;
       setState(() => _isLoading = true);
@@ -113,20 +105,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           base64Photo: base64Image,
         );
 
+        // Asumsi API foto juga mengembalikan data user yang lengkap
         if (mounted && result['data'] != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Foto profil berhasil diperbarui!')),
           );
-          await _loadUserData(); // Muat ulang semua data agar foto baru muncul
+          // Muat ulang data untuk refresh foto
+          await _loadUserData();
         } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(result['message'] ?? 'Gagal update foto.'),
-              ),
-            );
-            setState(() => _isLoading = false);
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result['message'] ?? 'Gagal update foto.')),
+          );
+          setState(() => _isLoading = false);
         }
       } catch (e) {
         if (mounted) {
@@ -139,12 +129,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // BARU: Fungsi untuk navigasi ke halaman edit profil
+  Future<void> _navigateToEditProfile() async {
+    if (_currentUser == null) return;
+
+    // Navigasi ke halaman edit dan tunggu hasilnya
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditProfileScreen(user: _currentUser!),
+      ),
+    );
+
+    // Jika halaman edit mengembalikan 'true' (artinya sukses),
+    // muat ulang data di halaman ini untuk menampilkan perubahan.
+    if (result == true) {
+      _loadUserData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Profil Pengguna"),
         automaticallyImplyLeading: false,
+        // MODIFIKASI: Tombol edit dipindah ke sini agar lebih rapi
+        actions: [
+          if (!_isLoading) // Hanya tampilkan jika tidak sedang loading
+            IconButton(
+              icon: const Icon(Icons.edit_note),
+              tooltip: 'Edit Profil',
+              onPressed: _navigateToEditProfile, // Panggil fungsi navigasi
+            ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -165,15 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Center(
                     child: Column(
                       children: [
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundImage: _currentUser?.profilePhotoUrl != null
-                              ? NetworkImage(_currentUser!.profilePhotoUrl!)
-                              : null,
-                          child: _currentUser?.profilePhotoUrl == null
-                              ? const Icon(Icons.person, size: 50)
-                              : null,
-                        ),
+                        _buildProfilePhoto(_currentUser?.fullProfilePhotoUrl),
                         TextButton.icon(
                           icon: const Icon(Icons.photo_camera, size: 18),
                           label: const Text("Ubah Foto"),
@@ -207,7 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ? 'Laki-laki'
                               : _currentUser?.gender == 'P'
                               ? 'Perempuan'
-                              : null,
+                              : 'Tidak ada data',
                         ),
                         const Divider(height: 1),
                         _buildProfileTile(
@@ -236,13 +246,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       textStyle: const TextStyle(fontSize: 16),
                     ),
                   ),
+                  // HAPUS: Tombol edit yang lama sudah dipindahkan ke AppBar
                 ],
               ),
             ),
     );
   }
 
-  // Helper widget untuk membuat ListTile lebih rapi
   Widget _buildProfileTile({
     required IconData icon,
     required String title,
@@ -258,6 +268,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           fontStyle: subtitle == null ? FontStyle.italic : FontStyle.normal,
         ),
       ),
+    );
+  }
+
+  Widget _buildProfilePhoto(String? photoUrl) {
+    if (photoUrl == null || photoUrl.isEmpty) {
+      return const CircleAvatar(
+        radius: 50,
+        backgroundColor: Colors.black12,
+        child: Icon(Icons.person, size: 50, color: Colors.white),
+      );
+    }
+
+    return CircleAvatar(
+      radius: 50,
+      backgroundColor: Colors.black12,
+      backgroundImage: NetworkImage(photoUrl),
+      onBackgroundImageError: (exception, stackTrace) {
+        debugPrint('Gagal memuat NetworkImage: $photoUrl, Error: $exception');
+      },
     );
   }
 }

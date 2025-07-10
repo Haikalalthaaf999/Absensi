@@ -1,17 +1,16 @@
 // lib/models/user_model.dart
 
-// Impor model lain yang dibutuhkan
-import 'training_model.dart'; // Pastikan path ini benar
-import 'batch_model.dart'; // Pastikan path ini benar
+import 'training_model.dart';
+import 'batch_model.dart';
+import 'package:project3/api/api_service.dart';
 
 class User {
   final int id;
   final String name;
   final String email;
   final String? gender;
-  final String? profilePhotoUrl;
+  final String? profilePhotoPath; // UBAH NAMA: Menyimpan path mentah dari API
   final String? createdAt;
-  // [PERUBAHAN] Tambahkan properti untuk training dan batch
   final Datum? training;
   final BatchData? batch;
 
@@ -20,26 +19,39 @@ class User {
     required this.name,
     required this.email,
     this.gender,
-    this.profilePhotoUrl,
+    this.profilePhotoPath, // UBAH NAMA
     this.createdAt,
-    // [PERUBAHAN] Tambahkan di constructor
     this.training,
     this.batch,
   });
 
-  // [PERUBAHAN] Factory fromJson sekarang menangani objek training dan batch
+  // ✨ TAMBAHKAN GETTER INI UNTUK MEMBUAT URL LENGKAP
+  String? get fullProfilePhotoUrl {
+    // Jika path null atau kosong, kembalikan null
+    if (profilePhotoPath == null || profilePhotoPath!.isEmpty) {
+      return null;
+    }
+    // Jika path sudah merupakan URL lengkap, langsung gunakan
+    if (profilePhotoPath!.startsWith('http')) {
+      return profilePhotoPath;
+    }
+    // Jika path adalah relatif, gabungkan dengan baseUrl dan path ke storage
+    // PERHATIKAN: Laravel sering menggunakan /storage/, bukan /public/. Coba ganti ini.
+    return '${ApiService.baseUrl}/public/$profilePhotoPath';
+  }
+
   factory User.fromJson(Map<String, dynamic> json) {
+    // Ambil path foto dari 'profile_photo_url' atau 'profile_photo'
+    String? photoPathFromApi =
+        json['profile_photo_url'] ?? json['profile_photo'];
+
     return User(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       email: json['email'] ?? '',
-      // Sesuaikan key dengan JSON dari API
       gender: json['jenis_kelamin'],
-      profilePhotoUrl:
-          json['profile_photo_url'] ??
-          json['profile_photo'], // Menangani kedua kemungkinan key
+      profilePhotoPath: photoPathFromApi, // Simpan path mentah
       createdAt: json['created_at'],
-      // Cek jika data training/batch ada, lalu decode dari objek nested
       training: json['training'] != null
           ? Datum.fromJson(json['training'])
           : null,
@@ -47,16 +59,15 @@ class User {
     );
   }
 
-  // [PERUBAHAN] Method toJson untuk menyimpan data ke SharedPreferences
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'email': email,
       'jenis_kelamin': gender,
-      'profile_photo_url': profilePhotoUrl,
+      // Saat mengirim balik ke JSON, kita bisa gunakan nama field yang sesuai
+      'profile_photo_url': profilePhotoPath,
       'created_at': createdAt,
-      // Ubah objek training/batch menjadi JSON jika tidak null
       'training': training?.toJson(),
       'batch': batch?.toJson(),
     };
