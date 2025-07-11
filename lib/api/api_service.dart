@@ -188,6 +188,7 @@ class ApiService {
     required double latitude,
     required double longitude,
     required String address,
+    required String status,
   }) async {
     try {
       final now = DateTime.now();
@@ -202,9 +203,9 @@ class ApiService {
         'check_in_lat': latitude.toString(),
         'check_in_lng': longitude.toString(),
         'check_in_address': address,
-        'status': 'masuk',
         'attendance_date': formattedDate,
         'check_in': formattedTime,
+         'status': status,
       };
 
       final response = await http.post(
@@ -240,23 +241,52 @@ class ApiService {
     required double longitude,
     required String address,
   }) async {
-    // BARU: Siapkan data waktu saat ini untuk check-out
-    final String formattedTime = DateFormat('HH:mm').format(DateTime.now());
+    final url = Uri.parse('$baseUrl/api/absen/check-out');
 
-    // MODIFIKASI: Tambahkan field 'check_out' ke dalam body
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/absen/check-out'),
-      headers: _getHeaders(token: token),
-      body: jsonEncode({
-        'check_out_lat': latitude.toString(),
-        'check_out_lng': longitude.toString(),
-        'check_out_address': address,
-        'check_out': formattedTime, // Data jam yang diwajibkan server
-      }),
-    );
-    return jsonDecode(response.body);
+    try {
+      final DateTime now = DateTime.now();
+      final String formattedTime = DateFormat('HH:mm').format(now);
+      // TAMBAHKAN INI untuk mendapatkan tanggal dalam format YYYY-MM-DD
+      final String formattedDate = DateFormat('yyyy-MM-dd').format(now);
+
+      final response = await http.post(
+        url,
+        headers: _getHeaders(token: token),
+        body: jsonEncode({
+          // <-- BODY YANG BARU (SUDAH LENGKAP)
+          'attendance_date': formattedDate, // <-- PERBAIKAN DI SINI
+          'check_out_lat': latitude.toString(),
+          'check_out_lng': longitude.toString(),
+          'check_out_address': address,
+          'check_out': formattedTime,
+        }),
+      );
+
+      print('CHECKOUT RESPONSE STATUS: ${response.statusCode}');
+      print('CHECKOUT RESPONSE BODY: ${response.body}');
+
+      if (response.body.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Server memberikan respons kosong',
+        };
+      }
+
+      final decodedBody = jsonDecode(response.body);
+
+      return {
+        'success': response.statusCode == 200,
+        'message': decodedBody['message'],
+        'data': decodedBody['data'],
+      };
+    } catch (e) {
+      print('Error saat checkout: ${e.toString()}');
+      return {
+        'success': false,
+        'message': 'Terjadi kesalahan: ${e.toString()}',
+      };
+    }
   }
-
   /// Endpoint: /api/absen/today
   static Future<Map<String, dynamic>> getTodayAttendance(String token) async {
     final response = await http.get(

@@ -40,10 +40,10 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    Intl.defaultLocale = 'id_ID';
     _loadInitialData();
   }
 
-  // PERBAIKAN UTAMA: Logika baru untuk memuat data
   Future<void> _loadInitialData() async {
     if (!mounted) return;
     if (!_isLoading) {
@@ -54,7 +54,6 @@ class _MapScreenState extends State<MapScreen> {
       _token = await _sessionManager.getToken();
       if (_token == null) return;
 
-      // 1. Cek data lokal terlebih dahulu
       final localAttendance = await _sessionManager
           .getTodayAttendanceFromLocal();
       if (localAttendance != null) {
@@ -64,7 +63,6 @@ class _MapScreenState extends State<MapScreen> {
           });
         }
       } else {
-        // 2. Jika tidak ada data lokal, baru panggil API
         final attendanceResult = await ApiService.getTodayAttendance(_token!);
         if (mounted && attendanceResult['data'] != null) {
           _todayAttendance = Attendance.fromJson(attendanceResult['data']);
@@ -169,7 +167,7 @@ class _MapScreenState extends State<MapScreen> {
             child: const Text('Izin / Sakit'),
             onPressed: () {
               Navigator.pop(context);
-              _showReasonDialog();
+              _showIzinDialog();
             },
           ),
           ElevatedButton(
@@ -184,50 +182,125 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  void _showReasonDialog() {
+  void _showIzinDialog() {
     final reasonController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Alasan Izin / Sakit'),
-        content: TextField(
-          controller: reasonController,
-          decoration: const InputDecoration(hintText: 'Cth: Sakit demam'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (reasonController.text.isNotEmpty) {
-                Navigator.pop(context);
-                _submitIzin(reasonController.text);
-              }
-            },
-            child: const Text('Kirim'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Ajukan Izin / Sakit'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Pilih Tanggal Izin:",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 30),
+                          ),
+                        );
+                        if (picked != null && picked != selectedDate) {
+                          setDialogState(() {
+                            selectedDate = picked;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade400),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              DateFormat(
+                                'EEEE, d MMMM yyyy',
+                              ).format(selectedDate),
+                            ),
+                            const Icon(
+                              Icons.calendar_today,
+                              color: primaryColor,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: reasonController,
+                      decoration: const InputDecoration(
+                        hintText: 'Cth: Sakit demam',
+                        labelText: 'Alasan',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (reasonController.text.isNotEmpty) {
+                      Navigator.pop(context);
+                      _submitIzin(reasonController.text, selectedDate);
+                    }
+                  },
+                  child: const Text('Kirim'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
-  // PERBAIKAN: Fungsi-fungsi ini sekarang akan menyimpan data ke lokal
-  void _submitIzin(String reason) async {
+  void _submitIzin(String reason, DateTime selectedDate) async {
     if (_token == null) return;
     setState(() => _isLoading = true);
     try {
       final result = await ApiService.submitIzin(
         token: _token!,
-        date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        date: DateFormat('yyyy-MM-dd').format(selectedDate),
         reason: reason,
       );
       if (mounted) {
-        await _sessionManager.saveTodayAttendance(result['data']);
-        setState(() {
-          _todayAttendance = Attendance.fromJson(result['data']);
-        });
+        final now = DateTime.now();
+        final isToday =
+            selectedDate.year == now.year &&
+            selectedDate.month == now.month &&
+            selectedDate.day == now.day;
+
+        if (isToday && result['data'] != null) {
+          await _sessionManager.saveTodayAttendance(result['data']);
+          setState(() {
+            _todayAttendance = Attendance.fromJson(result['data']);
+          });
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message'] ?? 'Pengajuan izin berhasil!'),
@@ -244,8 +317,47 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _performCheckOut() async {
+  // --- FUNGSI CHECK-IN YANG SUDAH DISEDERHANAKAN ---
+  void _performCheckIn() async {
     if (_token == null || _currentPosition == null) return;
+    setState(() => _isLoading = true);
+
+    try {
+      // Langsung kirim status 'masuk' tanpa logika pengecekan waktu
+      final result = await ApiService.checkIn(
+        token: _token!,
+        latitude: _currentPosition!.latitude,
+        longitude: _currentPosition!.longitude,
+        address: _currentAddress,
+        status: 'masuk', // <-- Status selalu 'masuk'
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Check In Berhasil!')),
+        );
+        await _loadInitialData(); // Muat ulang data untuk update UI
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal Check In: $e')));
+      }
+    } finally {
+      if (mounted && _isLoading) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _performCheckOut() async {
+    if (_token == null || _currentPosition == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Data tidak lengkap untuk checkout.')),
+      );
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       final result = await ApiService.checkOut(
@@ -255,48 +367,27 @@ class _MapScreenState extends State<MapScreen> {
         address: _currentAddress,
       );
       if (mounted) {
-        await _sessionManager.saveTodayAttendance(result['data']);
-        setState(() {
-          _todayAttendance = Attendance.fromJson(result['data']);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Berhasil Check Out!')),
-        );
+        if (result['success'] == true && result['data'] != null) {
+          await _sessionManager.saveTodayAttendance(result['data']);
+          setState(() {
+            _todayAttendance = Attendance.fromJson(result['data']);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result['message'] ?? 'Berhasil Check Out!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Gagal melakukan check-out'),
+            ),
+          );
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Gagal Check Out: $e')));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  void _performCheckIn() async {
-    if (_token == null || _currentPosition == null) return;
-    setState(() => _isLoading = true);
-    try {
-      final result = await ApiService.checkIn(
-        token: _token!,
-        latitude: _currentPosition!.latitude,
-        longitude: _currentPosition!.longitude,
-        address: _currentAddress,
-      );
-      if (mounted) {
-        await _sessionManager.saveTodayAttendance(result['data']);
-        setState(() {
-          _todayAttendance = Attendance.fromJson(result['data']);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Check In Berhasil!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal Check In: $e')));
       }
     } finally {
       if (mounted) {
@@ -304,8 +395,6 @@ class _MapScreenState extends State<MapScreen> {
       }
     }
   }
-
-  // Sisa kode build UI tidak perlu diubah.
 
   @override
   Widget build(BuildContext context) {
@@ -333,43 +422,52 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  // Lokasi: lib/screens/map_screen.dart
+
   Widget _buildMapOverlayButtons() {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // Stack memungkinkan kita menumpuk widget di posisi yang tepat
+        child: Stack(
           children: [
-            _buildCircleButton(
-              icon: Icons.arrow_back,
-              onPressed: () =>
-                  Navigator.of(context).pop(true), // Kirim sinyal refresh
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    spreadRadius: 1,
-                    blurRadius: 5,
+            // 1. Jam di TENGAH ATAS
+            Align(
+              alignment: Alignment.topCenter,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      spreadRadius: 1,
+                      blurRadius: 5,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  DateFormat('HH:mm').format(DateTime.now()),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
-                ],
-              ),
-              child: Text(
-                DateFormat('HH:mm').format(DateTime.now()),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
               ),
             ),
-            _buildCircleButton(
-              icon: Icons.refresh,
-              onPressed: _getCurrentLocation,
+
+            // 2. Tombol Lokasi di KANAN ATAS
+            Align(
+              alignment: Alignment.topRight,
+              child: _buildCircleButton(
+                icon: Icons.my_location, // Mengganti ikon menjadi lebih sesuai
+                onPressed: _getCurrentLocation,
+              ),
             ),
           ],
         ),
@@ -419,7 +517,8 @@ class _MapScreenState extends State<MapScreen> {
     } else if (_todayAttendance?.checkIn != null) {
       statusText = 'Sudah Check In';
       buttonText = 'Check Out';
-      statusColor = Colors.green;
+      statusColor =
+          Colors.green; // Selalu hijau karena tidak ada status terlambat
     } else {
       statusText = 'Belum Check In';
       buttonText = 'Pilih Aksi Absen';

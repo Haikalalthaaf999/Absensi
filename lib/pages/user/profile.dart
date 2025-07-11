@@ -152,7 +152,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Profil Pengguna"),
         automaticallyImplyLeading: false,
         // MODIFIKASI: Tombol edit dipindah ke sini agar lebih rapi
         actions: [

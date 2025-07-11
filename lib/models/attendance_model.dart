@@ -33,17 +33,18 @@ class Attendance {
     required this.status,
   });
 
-  factory Attendance.fromJson(Map<String, dynamic> json) {
+ factory Attendance.fromJson(Map<String, dynamic> json) {
     return Attendance(
       id: json["id"] ?? 0,
       userId: json["user_id"] ?? 0,
-
-      // PERBAIKAN UTAMA: Ambil tanggal dari 'attendance_date'
-      // dan pastikan tidak ada lagi DateTime.parse() yang berbahaya.
       date: json["attendance_date"] ?? '',
 
-      checkIn: json["check_in"],
-      checkOut: json["check_out"],
+      // PERBAIKAN: Mengambil data dari "check_in_time" sesuai respons server
+      checkIn: json["check_in_time"],
+
+      // Saya juga menambahkan pengecekan untuk check_out untuk berjaga-jaga
+      checkOut: json["check_out_time"] ?? json["check_out"],
+
       checkInLat: json["check_in_lat"]?.toString(),
       checkInLng: json["check_in_lng"]?.toString(),
       checkInAddress: json["check_in_address"],

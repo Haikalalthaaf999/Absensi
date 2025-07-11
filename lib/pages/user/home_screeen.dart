@@ -8,10 +8,9 @@ import 'dart:async';
 import 'package:project3/api/api_service.dart';
 import 'package:project3/models/attendance_model.dart';
 import 'package:project3/models/user_model.dart';
-import 'package:project3/pages/user/checkin_page.dart';
-
 import 'package:project3/utils/session_manager.dart';
 
+// --- Anda bisa menyesuaikan warna ini ---
 const Color primaryColor = Color(0xFF006769);
 const Color fontColor = Colors.black87;
 const Color accentColor = Color(0xFF40A578);
@@ -40,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _liveTime = DateFormat('HH:mm').format(DateTime.now());
+    _liveTime = DateFormat('hh:mm:ss a').format(DateTime.now());
     _timer = Timer.periodic(
       const Duration(seconds: 1),
       (Timer t) => _updateTime(),
@@ -51,42 +50,39 @@ class _HomeScreenState extends State<HomeScreen> {
   void _updateTime() {
     if (mounted) {
       setState(() {
-        _liveTime = DateFormat('HH:mm').format(DateTime.now());
+        _liveTime = DateFormat('hh:mm:ss a').format(DateTime.now());
       });
     }
   }
 
   Future<void> _loadData() async {
+    // ... (Fungsi ini tidak perlu diubah) ...
     if (!mounted) return;
-    if (!_isLoading) {
+    if (_currentUser == null) {
       setState(() => _isLoading = true);
     }
-
     try {
       final token = await _sessionManager.getToken();
-      // Ambil data user dari sesi, yang sudah disimpan saat login/update profile
       _currentUser = await _sessionManager.getUser();
-
       if (token == null) {
         throw Exception("Sesi tidak valid, silakan login kembali.");
       }
-
-      // Ambil data presensi hari ini
-      final attendanceResult = await ApiService.getTodayAttendance(token);
+      final results = await Future.wait([
+        ApiService.getTodayAttendance(token),
+        ApiService.getAbsenStats(token),
+      ]);
       if (mounted) {
+        final attendanceResult = results[0];
         if (attendanceResult['data'] != null) {
           _todayAttendance = Attendance.fromJson(attendanceResult['data']);
         } else {
           _todayAttendance = null;
         }
-      }
-
-      // Ambil data statistik presensi
-      final statsResult = await ApiService.getAbsenStats(token);
-      if (mounted &&
-          statsResult['data'] != null &&
-          statsResult['data'] is Map<String, dynamic>) {
-        _absenStats = statsResult['data'];
+        final statsResult = results[1];
+        if (statsResult['data'] != null &&
+            statsResult['data'] is Map<String, dynamic>) {
+          _absenStats = statsResult['data'];
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -105,6 +101,19 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  String _formatTime(String? time24h) {
+    if (time24h == null || time24h.isEmpty) {
+      return '--:--';
+    }
+    try {
+      final time = DateFormat('HH:mm').parse(time24h);
+      return DateFormat('hh:mm a').format(time);
+    } catch (e) {
+      return '--:--';
+    }
+  }
+
+  // --- WIDGET BUILD DIPERBARUI DENGAN STRUKTUR BARU ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -112,6 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Stack(
               children: [
+                // Background
                 Container(
                   decoration: const BoxDecoration(
                     image: DecorationImage(
@@ -120,50 +130,73 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
+                // Konten
                 SafeArea(
                   child: RefreshIndicator(
                     key: _refreshIndicatorKey,
                     onRefresh: _loadData,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 20),
-                          _buildHeader(),
-                          const SizedBox(height: 30),
-                          _buildLiveAttendanceCard(),
-                          const SizedBox(height: 30),
-                          const Text(
-                            "Your Activity",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // -- BAGIAN ATAS (STATIS / TIDAK BISA SCROLL) --
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 20),
+                              _buildHeader(),
+                              const SizedBox(height: 30),
+                              _buildLiveAttendanceCard(),
+                              const SizedBox(height: 30),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          _buildActivitySection(),
-                          const SizedBox(height: 24),
-                          _buildStatisticsSection(),
-                          if (_errorMessage != null)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 20.0,
-                                ),
-                                child: Text(
-                                  _errorMessage!,
-                                  style: const TextStyle(
-                                    color: Colors.redAccent,
+                        ),
+                        Divider(),
+                        // -- BAGIAN BAWAH (BISA SCROLL) --
+                        Expanded(
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20.0,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "Your Activity",
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xff046865),
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 16),
+                                  _buildActivitySection(),
+                                  const SizedBox(height: 24),
+                                  _buildStatisticsSection(),
+                                  if (_errorMessage != null)
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 20.0,
+                                        ),
+                                        child: Text(
+                                          _errorMessage!,
+                                          style: const TextStyle(
+                                            color: Colors.redAccent,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(height: 80),
+                                ],
                               ),
                             ),
-                          const SizedBox(height: 80),
-                        ],
-                      ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -182,7 +215,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: SizedBox(
               width: 52,
               height: 52,
-              // PERBAIKAN DI SINI: Gunakan getter 'fullProfilePhotoUrl' dari model User
               child: (_currentUser?.fullProfilePhotoUrl != null)
                   ? Image.network(
                       _currentUser!.fullProfilePhotoUrl!,
@@ -197,7 +229,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                       errorBuilder: (context, error, stackTrace) {
-                        // Jika gagal, tampilkan ikon default
                         return const Icon(
                           Icons.person,
                           size: 30,
@@ -255,14 +286,16 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               _liveTime,
               style: const TextStyle(
-                fontSize: 48,
+                fontFamily: 'DS-Digital',
+                fontSize: 42,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
+                letterSpacing: 3.0,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
+              DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now()),
               style: const TextStyle(color: Colors.white70),
             ),
             const Divider(height: 30, thickness: 1, color: Colors.white24),
@@ -281,15 +314,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildActivitySection() {
-    final today = DateFormat('E, d MMM').format(DateTime.now());
-
     if (_todayAttendance == null) {
-      return _buildActivityTile(
-        icon: Icons.info_outline,
-        title: "Belum Ada Aktivitas",
-        subtitle: today,
-        time: "",
-        status: "Belum Absen",
+      return Card(
+        color: Colors.black.withOpacity(0.25),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: const ListTile(
+          leading: Icon(Icons.info_outline, color: Colors.white70),
+          title: Text(
+            "Belum Ada Aktivitas",
+            style: TextStyle(color: Colors.white),
+          ),
+          subtitle: Text(
+            "Silakan lakukan check-in",
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
       );
     }
 
@@ -298,8 +337,9 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.info_outline,
         title: "Izin",
         subtitle: _todayAttendance!.reason ?? 'Alasan tidak tersedia',
-        time: "",
+        time: '',
         status: "Izin Disetujui",
+        color: Colors.orange.shade800,
       );
     }
 
@@ -308,20 +348,29 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildActivityTile(
           icon: Icons.fingerprint,
           title: "Check In",
-          subtitle: today,
-          time: _todayAttendance!.checkIn ?? '--:--',
-          status:
-              "On Time", // Anda bisa menambahkan logika untuk 'Late' di sini
+          subtitle: DateFormat(
+            'E, d MMM',
+            'id_ID',
+          ).format(DateTime.parse(_todayAttendance!.date)),
+          time: _formatTime(_todayAttendance!.checkIn),
+          status: "On Time",
+          color: accentColor,
         ),
         const SizedBox(height: 10),
         _buildActivityTile(
           icon: Icons.logout,
           title: "Check Out",
-          subtitle: today,
-          time: _todayAttendance!.checkOut ?? '--:--',
+          subtitle: DateFormat(
+            'E, d MMM',
+            'id_ID',
+          ).format(DateTime.parse(_todayAttendance!.date)),
+          time: _formatTime(_todayAttendance!.checkOut),
           status: _todayAttendance!.checkOut != null
               ? "Finished"
               : "Belum Check Out",
+          color: _todayAttendance!.checkOut != null
+              ? Colors.blueGrey
+              : Colors.grey.shade700,
         ),
       ],
     );
@@ -333,39 +382,50 @@ class _HomeScreenState extends State<HomeScreen> {
     required String subtitle,
     required String time,
     required String status,
+    required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.25),
+        color: color.withOpacity(0.8),
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.5),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: Colors.white, size: 28),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                if (subtitle.isNotEmpty)
+          Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 28),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 12,
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
-              ],
-            ),
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -375,14 +435,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontSize: 20,
                 ),
               ),
               if (status.isNotEmpty)
                 Text(
                   status,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withOpacity(0.9),
                     fontSize: 12,
                   ),
                 ),
@@ -402,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: Color(0xff046865),
           ),
         ),
         const SizedBox(height: 16),
@@ -413,10 +473,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  int _getStatAsInt(String key) {
+    return num.tryParse(_absenStats[key]?.toString() ?? '0')?.toInt() ?? 0;
+  }
+
   Widget _buildSummaryCard() {
     double percent = 0.0;
-    final totalAbsen = _absenStats['total_absen'] as int? ?? 0;
-    final totalMasuk = _absenStats['total_masuk'] as int? ?? 0;
+    final totalAbsen = _getStatAsInt('total_absen');
+    final totalMasuk = _getStatAsInt('total_masuk');
 
     if (totalAbsen > 0) {
       percent = totalMasuk / totalAbsen;
@@ -483,25 +547,21 @@ class _HomeScreenState extends State<HomeScreen> {
       childAspectRatio: 1.8,
       children: [
         _buildStatGridItem(
-          count: (_absenStats['total_hadir']?.toString()) ?? '0',
+          count: _getStatAsInt('total_masuk').toString(),
           label: "Present",
           color: Colors.green,
         ),
         _buildStatGridItem(
-          count: (_absenStats['total_izin']?.toString()) ?? '0',
+          count: _getStatAsInt('total_izin').toString(),
           label: "Absents/Izin",
           color: Colors.red,
         ),
         _buildStatGridItem(
-          count: "0", // Data belum tersedia dari API
+          count: "0",
           label: "Early Leave",
           color: Colors.blue,
         ),
-        _buildStatGridItem(
-          count: (_absenStats['total_terlambat']?.toString()) ?? '0',
-          label: "Late",
-          color: Colors.orange,
-        ),
+        _buildStatGridItem(count: "0", label: "Late", color: Colors.orange),
       ],
     );
   }
