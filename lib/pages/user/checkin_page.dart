@@ -1,5 +1,3 @@
-// lib/screens/map_screen.dart
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -7,6 +5,7 @@ import 'package:geocoding/geocoding.dart';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 
 import 'package:project3/api/api_service.dart';
 import 'package:project3/models/attendance_model.dart';
@@ -14,6 +13,7 @@ import 'package:project3/utils/session_manager.dart';
 
 const Color primaryColor = Color(0xFF006769);
 const Color accentColor = Color(0xFF40A578);
+const Color backgroundColor = Color(0xffF7E9D7);
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -28,9 +28,10 @@ class _MapScreenState extends State<MapScreen> {
   final SessionManager _sessionManager = SessionManager();
 
   bool _isLoading = true;
+  bool _isProcessingAttendance = false;
   String? _token;
   Position? _currentPosition;
-  String _currentAddress = "Memuat alamat...";
+  String _currentAddress = "";
   Attendance? _todayAttendance;
 
   final LatLng _officePosition = const LatLng(-6.2109, 106.8129);
@@ -46,108 +47,124 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadInitialData() async {
     if (!mounted) return;
-    if (!_isLoading) {
-      setState(() => _isLoading = true);
-    }
+    setState(() => _isLoading = true);
 
     try {
       _token = await _sessionManager.getToken();
       if (_token == null) return;
 
-      final localAttendance = await _sessionManager
-          .getTodayAttendanceFromLocal();
-      if (localAttendance != null) {
-        if (mounted) {
-          setState(() {
-            _todayAttendance = localAttendance;
-          });
-        }
+      final attendanceResult = await ApiService.getTodayAttendance(_token!);
+      if (mounted && attendanceResult['data'] != null) {
+        _todayAttendance = Attendance.fromJson(attendanceResult['data']);
+        await _sessionManager.saveTodayAttendance(attendanceResult['data']);
       } else {
-        final attendanceResult = await ApiService.getTodayAttendance(_token!);
-        if (mounted && attendanceResult['data'] != null) {
-          _todayAttendance = Attendance.fromJson(attendanceResult['data']);
-        } else {
-          _todayAttendance = null;
-        }
+        _todayAttendance = null;
+        await _sessionManager.clearTodayAttendance();
       }
 
       await _getCurrentLocation();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: Text('Gagal memuat data: $e')));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _getCurrentLocation() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        if (mounted)
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Izin lokasi ditolak.')));
-        return;
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Izin lokasi ditolak.')),
+            );
+          }
+          return;
+        }
       }
-    }
 
-    _currentPosition = await Geolocator.getCurrentPosition();
+      _currentPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
 
-    List<Placemark> placemarks = await placemarkFromCoordinates(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-    );
-    if (placemarks.isNotEmpty) {
-      final place = placemarks.first;
-      _currentAddress =
-          "${place.street}, ${place.subLocality}, ${place.locality}, ${place.country}";
-    }
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+      );
+      if (mounted && placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        setState(() {
+          _currentAddress =
+              "${place.street}, ${place.subLocality}, ${place.locality}, ${place.country}";
+        });
+      }
 
-    _distanceFromOffice = Geolocator.distanceBetween(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      _officePosition.latitude,
-      _officePosition.longitude,
-    );
+      _distanceFromOffice = Geolocator.distanceBetween(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+        _officePosition.latitude,
+        _officePosition.longitude,
+      );
 
-    if (mounted) {
-      setState(() {
-        _markers.clear();
-        _markers.add(
-          Marker(
-            markerId: const MarkerId('currentLocation'),
-            position: LatLng(
-              _currentPosition!.latitude,
-              _currentPosition!.longitude,
+      if (mounted) {
+        setState(() {
+          _markers.clear();
+          _markers.add(
+            Marker(
+              markerId: const MarkerId('currentLocation'),
+              position: LatLng(
+                _currentPosition!.latitude,
+                _currentPosition!.longitude,
+              ),
+              infoWindow: const InfoWindow(title: 'Lokasi Anda'),
             ),
-            infoWindow: const InfoWindow(title: 'Lokasi Anda'),
+          );
+        });
+
+        final GoogleMapController controller = await _mapController.future;
+        controller.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: LatLng(
+                _currentPosition!.latitude,
+                _currentPosition!.longitude,
+              ),
+              zoom: 16,
+            ),
           ),
         );
-      });
-
-      final GoogleMapController controller = await _mapController.future;
-      controller.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: LatLng(
-              _currentPosition!.latitude,
-              _currentPosition!.longitude,
-            ),
-            zoom: 16,
-          ),
-        ),
-      );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal mendapatkan lokasi: $e')));
+      }
     }
   }
 
   void _handleAttendance() {
-    if (_todayAttendance?.status == 'izin' ||
-        _todayAttendance?.checkOut != null)
+    if (_todayAttendance?.status == 'izin') {
       return;
+    }
+
+    if (_todayAttendance?.checkOut != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Anda sudah melakukan checkout. Absensi hari ini telah selesai.',
+          ),
+          backgroundColor: Colors.grey,
+        ),
+      );
+      return;
+    }
 
     if (_todayAttendance?.status == 'masuk') {
       _performCheckOut();
@@ -156,29 +173,189 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  void _performCheckIn() async {
+    if (_token == null || _currentPosition == null) return;
+    setState(() => _isProcessingAttendance = true);
+
+    try {
+      final result = await ApiService.checkIn(
+        token: _token!,
+        latitude: _currentPosition!.latitude,
+        longitude: _currentPosition!.longitude,
+        address: _currentAddress,
+        status: 'masuk',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Check In Berhasil!'),
+            backgroundColor: accentColor,
+          ),
+        );
+        await _loadInitialData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal Check In: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessingAttendance = false);
+    }
+  }
+
+  void _performCheckOut() async {
+    if (_token == null || _currentPosition == null) return;
+    setState(() => _isProcessingAttendance = true);
+
+    try {
+      final result = await ApiService.checkOut(
+        token: _token!,
+        latitude: _currentPosition!.latitude,
+        longitude: _currentPosition!.longitude,
+        address: _currentAddress,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Berhasil Check Out!'),
+            backgroundColor: accentColor,
+          ),
+        );
+        await _loadInitialData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal Check Out: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessingAttendance = false);
+    }
+  }
+
+  void _submitIzin(String reason, DateTime selectedDate) async {
+    if (_token == null) return;
+    setState(() => _isProcessingAttendance = true);
+    try {
+      final result = await ApiService.submitIzin(
+        token: _token!,
+        date: DateFormat('yyyy-MM-dd').format(selectedDate),
+        reason: reason,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Pengajuan izin berhasil!'),
+            backgroundColor: accentColor,
+          ),
+        );
+        final now = DateTime.now();
+        final isToday =
+            selectedDate.year == now.year &&
+            selectedDate.month == now.month &&
+            selectedDate.day == now.day;
+        if (isToday) {
+          await _loadInitialData();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal mengajukan izin: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessingAttendance = false);
+    }
+  }
+
   void _showCheckInOptions() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Pilih Aksi'),
-        content: const Text('Silakan pilih status kehadiran Anda hari ini.'),
-        actions: [
-          TextButton(
-            child: const Text('Izin / Sakit'),
-            onPressed: () {
-              Navigator.pop(context);
-              _showIzinDialog();
-            },
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
           ),
-          ElevatedButton(
-            child: const Text('Hadir (Check In)'),
-            onPressed: () {
-              Navigator.pop(context);
-              _performCheckIn();
-            },
+          child: Container(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.touch_app_outlined,
+                    color: primaryColor,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Pilih Aksi',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Silakan pilih status kehadiran Anda hari ini.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.fingerprint, size: 20),
+                  label: const Text('Hadir (Check In)'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _performCheckIn();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.event_busy_outlined, size: 20),
+                  label: const Text('Ajukan Izin / Sakit'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showIzinDialog();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primaryColor,
+                    side: const BorderSide(color: primaryColor),
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Batal',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -188,217 +365,157 @@ class _MapScreenState extends State<MapScreen> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Ajukan Izin / Sakit'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Pilih Tanggal Izin:",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: () async {
-                        final DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 30),
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return Container(
+                padding: const EdgeInsets.all(24.0),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
                           ),
-                        );
-                        if (picked != null && picked != selectedDate) {
-                          setDialogState(() {
-                            selectedDate = picked;
-                          });
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade400),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              DateFormat(
-                                'EEEE, d MMMM yyyy',
-                              ).format(selectedDate),
-                            ),
-                            const Icon(
-                              Icons.calendar_today,
-                              color: primaryColor,
-                            ),
-                          ],
+                          child: const Icon(
+                            Icons.event_busy_outlined,
+                            color: primaryColor,
+                            size: 32,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: reasonController,
-                      decoration: const InputDecoration(
-                        hintText: 'Cth: Sakit demam',
-                        labelText: 'Alasan',
-                        border: OutlineInputBorder(),
+                      const SizedBox(height: 16),
+                      const Center(
+                        child: Text(
+                          'Ajukan Izin / Sakit',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      const Text(
+                        "Pilih Tanggal Izin:",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 30),
+                            ),
+                          );
+                          if (picked != null && picked != selectedDate) {
+                            setDialogState(() => selectedDate = picked);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade400),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                DateFormat(
+                                  'EEEE, d MMMM yyyy',
+                                ).format(selectedDate),
+                              ),
+                              const Icon(
+                                Icons.calendar_today,
+                                color: primaryColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        "Alasan:",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: reasonController,
+                        decoration: InputDecoration(
+                          hintText: 'Cth: Sakit demam',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                              style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Batal'),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton(
+                            onPressed: () {
+                              if (reasonController.text.isNotEmpty) {
+                                Navigator.pop(context);
+                                _submitIzin(
+                                  reasonController.text,
+                                  selectedDate,
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Kirim'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Batal'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (reasonController.text.isNotEmpty) {
-                      Navigator.pop(context);
-                      _submitIzin(reasonController.text, selectedDate);
-                    }
-                  },
-                  child: const Text('Kirim'),
-                ),
-              ],
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );
   }
 
-  void _submitIzin(String reason, DateTime selectedDate) async {
-    if (_token == null) return;
-    setState(() => _isLoading = true);
-    try {
-      final result = await ApiService.submitIzin(
-        token: _token!,
-        date: DateFormat('yyyy-MM-dd').format(selectedDate),
-        reason: reason,
-      );
-      if (mounted) {
-        final now = DateTime.now();
-        final isToday =
-            selectedDate.year == now.year &&
-            selectedDate.month == now.month &&
-            selectedDate.day == now.day;
-
-        if (isToday && result['data'] != null) {
-          await _sessionManager.saveTodayAttendance(result['data']);
-          setState(() {
-            _todayAttendance = Attendance.fromJson(result['data']);
-          });
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Pengajuan izin berhasil!'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal mengajukan izin: $e')));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  // --- FUNGSI CHECK-IN YANG SUDAH DISEDERHANAKAN ---
-  void _performCheckIn() async {
-    if (_token == null || _currentPosition == null) return;
-    setState(() => _isLoading = true);
-
-    try {
-      // Langsung kirim status 'masuk' tanpa logika pengecekan waktu
-      final result = await ApiService.checkIn(
-        token: _token!,
-        latitude: _currentPosition!.latitude,
-        longitude: _currentPosition!.longitude,
-        address: _currentAddress,
-        status: 'masuk', // <-- Status selalu 'masuk'
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Check In Berhasil!')),
-        );
-        await _loadInitialData(); // Muat ulang data untuk update UI
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal Check In: $e')));
-      }
-    } finally {
-      if (mounted && _isLoading) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  void _performCheckOut() async {
-    if (_token == null || _currentPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Data tidak lengkap untuk checkout.')),
-      );
-      return;
-    }
-    setState(() => _isLoading = true);
-    try {
-      final result = await ApiService.checkOut(
-        token: _token!,
-        latitude: _currentPosition!.latitude,
-        longitude: _currentPosition!.longitude,
-        address: _currentAddress,
-      );
-      if (mounted) {
-        if (result['success'] == true && result['data'] != null) {
-          await _sessionManager.saveTodayAttendance(result['data']);
-          setState(() {
-            _todayAttendance = Attendance.fromJson(result['data']);
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result['message'] ?? 'Berhasil Check Out!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message'] ?? 'Gagal melakukan check-out'),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal Check Out: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: backgroundColor,
       body: Stack(
         children: [
           GoogleMap(
@@ -422,16 +539,12 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  // Lokasi: lib/screens/map_screen.dart
-
   Widget _buildMapOverlayButtons() {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-        // Stack memungkinkan kita menumpuk widget di posisi yang tepat
         child: Stack(
           children: [
-            // 1. Jam di TENGAH ATAS
             Align(
               alignment: Alignment.topCenter,
               child: Container(
@@ -440,7 +553,7 @@ class _MapScreenState extends State<MapScreen> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: backgroundColor,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
@@ -460,12 +573,10 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
             ),
-
-            // 2. Tombol Lokasi di KANAN ATAS
             Align(
               alignment: Alignment.topRight,
               child: _buildCircleButton(
-                icon: Icons.my_location, // Mengganti ikon menjadi lebih sesuai
+                icon: Icons.my_location,
                 onPressed: _getCurrentLocation,
               ),
             ),
@@ -481,7 +592,7 @@ class _MapScreenState extends State<MapScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: backgroundColor,
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
@@ -499,40 +610,14 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _buildAttendancePanel() {
-    String statusText;
-    String buttonText;
-    Color statusColor;
-    bool isButtonEnabled = true;
-
-    if (_todayAttendance?.status == 'izin') {
-      statusText = 'Izin (${_todayAttendance!.reason})';
-      buttonText = 'Anda Sedang Izin';
-      statusColor = Colors.orange;
-      isButtonEnabled = false;
-    } else if (_todayAttendance?.checkOut != null) {
-      statusText = 'Sudah Check Out';
-      buttonText = 'Absensi Selesai';
-      statusColor = Colors.grey;
-      isButtonEnabled = false;
-    } else if (_todayAttendance?.checkIn != null) {
-      statusText = 'Sudah Check In';
-      buttonText = 'Check Out';
-      statusColor =
-          Colors.green; // Selalu hijau karena tidak ada status terlambat
-    } else {
-      statusText = 'Belum Check In';
-      buttonText = 'Pilih Aksi Absen';
-      statusColor = Colors.red;
-    }
-
     return DraggableScrollableSheet(
-      initialChildSize: 0.35,
-      minChildSize: 0.15,
+      initialChildSize: 0.38,
+      minChildSize: 0.2,
       maxChildSize: 0.6,
       builder: (BuildContext context, ScrollController scrollController) {
         return Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: backgroundColor,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(24),
               topRight: Radius.circular(24),
@@ -541,6 +626,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
           child: ListView(
             controller: scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             children: [
               Center(
                 child: Container(
@@ -553,109 +639,208 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Absensi Lokasi',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Absensi Lokasi',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  TextButton.icon(
+                    onPressed: _showIzinDialog,
+                    icon: const Icon(Icons.note_add_outlined, size: 20),
+                    label: const Text('Ajukan Izin'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: primaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                     ),
-                    const SizedBox(height: 16),
-                    if (_isLoading && _currentAddress == "Memuat alamat...")
-                      const Row(
-                        children: [
-                          Icon(Icons.location_on, color: Colors.grey),
-                          SizedBox(width: 8),
-                          Text("Mencari lokasi..."),
-                        ],
-                      )
-                    else
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on, color: primaryColor),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _currentAddress,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        ],
-                      ),
-                    const Divider(height: 24),
-                    Text(
-                      'Jarak dari Kantor',
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                    Text(
-                      '${_distanceFromOffice.toStringAsFixed(0)} meter',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: accentColor,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Status Hari Ini',
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                    Text(
-                      statusText,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isLoading || !isButtonEnabled
-                            ? null
-                            : _handleAttendance,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isButtonEnabled
-                              ? accentColor
-                              : Colors.grey.shade400,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 3,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(
-                                buttonText,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 16),
+              if (_isLoading) _buildShimmerEffect() else _buildAttendanceInfo(),
+              const SizedBox(height: 20),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAttendanceInfo() {
+    String statusText;
+    String buttonText;
+    Color statusColor;
+    bool isButtonEnabled = true;
+
+    if (_todayAttendance?.status == 'izin') {
+      statusText = 'Izin (${_todayAttendance!.reason})';
+      buttonText = 'Anda Sedang Izin';
+      statusColor = Colors.orange.shade700;
+      isButtonEnabled = false;
+    } else if (_todayAttendance?.checkOut != null) {
+      statusText = 'Selesai';
+      buttonText = 'Absensi Selesai';
+      statusColor = Colors.grey.shade600;
+      isButtonEnabled = false;
+    } else if (_todayAttendance?.checkIn != null) {
+      statusText = 'Sudah Check In';
+      buttonText = 'Check Out Sekarang';
+      statusColor = Colors.green.shade600;
+    } else {
+      statusText = 'Belum Check In';
+      buttonText = 'Pilih Aksi Absen';
+      statusColor = Colors.red.shade600;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInfoTile(
+          icon: Icons.location_on_outlined,
+          label: 'Lokasi Anda Saat Ini',
+          value: _currentAddress.isEmpty ? 'Tidak terdeteksi' : _currentAddress,
+        ),
+        _buildInfoTile(
+          icon: Icons.social_distance_outlined,
+          label: 'Jarak dari Kantor',
+          value: '${_distanceFromOffice.toStringAsFixed(0)} meter',
+          valueColor: accentColor,
+        ),
+        _buildInfoTile(
+          icon: Icons.today_outlined,
+          label: 'Status Hari Ini',
+          value: statusText,
+          valueColor: statusColor,
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: _buildActionButton(
+            text: buttonText,
+            isEnabled: isButtonEnabled,
+            onPressed: _handleAttendance,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    Color? valueColor,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: primaryColor, size: 28),
+      title: Text(
+        label,
+        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+      ),
+      subtitle: Text(
+        value,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: valueColor ?? Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required String text,
+    required bool isEnabled,
+    required VoidCallback onPressed,
+  }) {
+    return ElevatedButton(
+      onPressed: _isProcessingAttendance || !isEnabled ? null : onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: accentColor,
+        disabledBackgroundColor: Colors.grey.shade300,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: isEnabled ? 2 : 0,
+      ),
+      child: _isProcessingAttendance
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Memproses...',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            )
+          : Text(
+              text,
+              style: TextStyle(
+                color: isEnabled ? Colors.white : Colors.grey.shade600,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+    );
+  }
+
+  Widget _buildShimmerEffect() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[400]!,
+      highlightColor: Colors.grey[200]!,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildShimmerTile(),
+          _buildShimmerTile(),
+          _buildShimmerTile(),
+          const SizedBox(height: 24),
+          Container(
+            width: double.infinity,
+            height: 50.0,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShimmerTile() {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        width: 28,
+        height: 28,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+      ),
+      title: Container(width: 100, height: 12, color: Colors.white),
+      subtitle: Container(
+        width: 200,
+        height: 16,
+        margin: const EdgeInsets.only(top: 4),
+        color: Colors.white,
+      ),
     );
   }
 }

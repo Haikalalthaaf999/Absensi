@@ -7,8 +7,9 @@ import 'package:project3/pages/auth/register_page.dart';
 import 'package:project3/pages/user/main_screen.dart';
 import 'package:project3/utils/session_manager.dart';
 
-// Import Firebase Messaging jika Anda menggunakannya
-// import 'package:firebase_messaging/firebase_messaging.dart';
+// Tema Warna Aplikasi
+const Color primaryColor = Color(0xFF006769);
+const Color accentColor = Color(0xFF40A578);
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _sessionManager = SessionManager();
 
   bool _isLoading = false;
-  bool _isPasswordVisible = false;
+  bool _isPasswordHidden = true;
   String? _deviceToken;
 
   @override
@@ -33,9 +34,9 @@ class _LoginScreenState extends State<LoginScreen> {
     _getDeviceToken();
   }
 
-  // Fungsi untuk mendapatkan device token
   Future<void> _getDeviceToken() async {
-    // Untuk tujuan pengembangan, kita bisa gunakan nilai dummy
+    // Untuk pengembangan, kita bisa gunakan nilai dummy.
+    // Jika menggunakan Firebase, ganti dengan logika untuk mendapatkan token FCM.
     if (mounted) {
       setState(() {
         _deviceToken = 'dummy_device_token_for_testing';
@@ -44,17 +45,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+    // Sembunyikan keyboard saat tombol ditekan
+    FocusScope.of(context).unfocus();
 
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
       try {
         final apiResponse = await ApiService.login(
           _emailController.text,
           _passwordController.text,
-          // PERBAIKAN: Kirim nilai dari variabel, bukan fungsinya
-          _deviceToken!,
+          _deviceToken ?? 'token_not_found',
         );
 
         if (mounted &&
@@ -62,12 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
             apiResponse['data']['token'] != null) {
           final token = apiResponse['data']['token'];
           final user = User.fromJson(apiResponse['data']['user']);
-
           await _sessionManager.saveSession(token, user);
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login berhasil! Halo, ${user.name}')),
-          );
 
           Navigator.pushReplacement(
             context,
@@ -76,24 +71,25 @@ class _LoginScreenState extends State<LoginScreen> {
         } else {
           final message =
               apiResponse['message'] ??
-              'Login gagal. Periksa kembali email dan password Anda.';
+              'Login gagal. Periksa kembali data Anda.';
           if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(message)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(message), backgroundColor: Colors.red),
+            );
           }
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Terjadi kesalahan: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       } finally {
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
+          setState(() => _isLoading = false);
         }
       }
     }
@@ -109,114 +105,207 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Selamat Datang',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Masuk untuk melanjutkan',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 40),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Email tidak boleh kosong';
-                      }
-                      if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
-                        return 'Format email tidak valid';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: !_isPasswordVisible,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _isPasswordVisible
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _isPasswordVisible = !_isPasswordVisible;
-                          });
-                        },
+      backgroundColor: Color(0xffF7E9D7),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Selamat Datang Kembali',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Password tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                          onPressed: _login,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Masuk',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Belum punya akun?"),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const RegisterPage(),
-                            ),
-                          );
-                        },
-                        child: const Text('Daftar di sini'),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Masuk untuk melanjutkan ke akun Anda',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: _buildInputDecoration(
+                        label: 'Email',
+                        icon: Icons.email_outlined,
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty)
+                          return 'Email tidak boleh kosong';
+                        if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value))
+                          return 'Format email tidak valid';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _isPasswordHidden,
+                      decoration: _buildInputDecoration(
+                        label: 'Password',
+                        icon: Icons.lock_outline,
+                        isPassword: true,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty)
+                          return 'Password tidak boleh kosong';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 32),
+
+                    _buildLoginButton(),
+                    const SizedBox(height: 24),
+
+                    _buildRegisterLink(),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
+
+  Widget _buildHeader() {
+    return ClipPath(
+      clipper: WaveClipper(),
+      child: Container(
+        height: 250,
+        width: double.infinity,
+        color: primaryColor,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/Asset 5.png', // Pastikan path logo benar
+              height: 150,
+              width: 150,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _buildInputDecoration({
+    required String label,
+    required IconData icon,
+    bool isPassword = false,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: primaryColor.withOpacity(0.7)),
+      filled: true,
+      fillColor: Colors.grey.shade100,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: primaryColor, width: 2),
+      ),
+      suffixIcon: isPassword
+          ? IconButton(
+              icon: Icon(
+                _isPasswordHidden ? Icons.visibility_off : Icons.visibility,
+                color: Colors.grey.shade600,
+              ),
+              onPressed: () =>
+                  setState(() => _isPasswordHidden = !_isPasswordHidden),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildLoginButton() {
+    return ElevatedButton(
+      onPressed: _isLoading ? null : _login,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(double.infinity, 52),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      child: _isLoading
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
+              ),
+            )
+          : const Text('Masuk'),
+    );
+  }
+
+  Widget _buildRegisterLink() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text("Belum punya akun?"),
+        TextButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const RegisterPage()),
+            );
+          },
+          child: const Text(
+            'Daftar di sini',
+            style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class WaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    var path = Path();
+    path.lineTo(0, size.height - 50);
+    var firstControlPoint = Offset(size.width / 4, size.height);
+    var firstEndPoint = Offset(size.width / 2, size.height - 30);
+    path.quadraticBezierTo(
+      firstControlPoint.dx,
+      firstControlPoint.dy,
+      firstEndPoint.dx,
+      firstEndPoint.dy,
+    );
+
+    var secondControlPoint = Offset(size.width * 3 / 4, size.height - 60);
+    var secondEndPoint = Offset(size.width, size.height - 40);
+    path.quadraticBezierTo(
+      secondControlPoint.dx,
+      secondControlPoint.dy,
+      secondEndPoint.dx,
+      secondEndPoint.dy,
+    );
+
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

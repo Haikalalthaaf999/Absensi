@@ -5,6 +5,10 @@ import 'package:project3/api/api_service.dart';
 import 'package:project3/models/user_model.dart';
 import 'package:project3/utils/session_manager.dart';
 
+// Menggunakan tema warna dari halaman profil
+const Color profilePrimaryColor = Color(0xFF006769);
+const Color profileBackgroundColor = Color(0xFFF7E9D7);
+
 class EditProfileScreen extends StatefulWidget {
   final User user;
 
@@ -36,7 +40,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  // MODIFIKASI UTAMA DI FUNGSI INI
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -59,31 +62,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
 
       if (mounted) {
-        // Cek berdasarkan pesan sukses dari API, karena 'success' key tidak ada
         if (result['message'] == "Profil berhasil diperbarui" &&
             result['data'] != null) {
-          // --- LOGIKA PENGGABUNGAN DATA DIMULAI DI SINI ---
-
-          // 1. Ambil data user LENGKAP dari sesi lokal
+          // Logika penggabungan data sudah baik, kita pertahankan
           final User? oldUser = await _sessionManager.getUser();
           if (oldUser == null) throw Exception('Sesi pengguna tidak valid');
 
-          // 2. Ambil data NAMA dan EMAIL BARU dari respons API
           final Map<String, dynamic> newData = result['data'];
-
-          // 3. Buat objek User baru dengan MENGGABUNGKAN data lama dan baru
           final User mergedUser = User(
             id: oldUser.id,
-            name: newData['name'] ?? oldUser.name, // Gunakan nama baru
-            email: newData['email'] ?? oldUser.email, // Gunakan email baru
-            profilePhotoPath: oldUser.profilePhotoPath, // Gunakan foto LAMA
-            gender: oldUser.gender, // Gunakan gender LAMA
-            training: oldUser.training, // Gunakan training LAMA
-            batch: oldUser.batch, // Gunakan batch LAMA
+            name: newData['name'] ?? oldUser.name,
+            email: newData['email'] ?? oldUser.email,
+            profilePhotoPath: oldUser.profilePhotoPath,
+            gender: oldUser.gender,
+            training: oldUser.training,
+            batch: oldUser.batch,
             createdAt: oldUser.createdAt,
           );
 
-          // 4. Simpan objek hasil gabungan yang sudah LENGKAP ke sesi
           await _sessionManager.saveUser(mergedUser);
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -92,7 +88,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context, true); // Kembali & sinyalkan sukses
+          Navigator.pop(context, true);
         } else {
           throw Exception(result['message'] ?? 'Gagal memperbarui profil');
         }
@@ -116,18 +112,61 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Profil')),
+      backgroundColor: profileBackgroundColor,
+      appBar: AppBar(
+        title: const Text(
+          'Edit Profil',
+          style: TextStyle(
+            color: profilePrimaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: profileBackgroundColor,
+        elevation: 0,
+        iconTheme: const IconThemeData(
+          color: profilePrimaryColor,
+        ), // Warna ikon back
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           children: [
+            // Header dengan foto dan nama
+            Column(
+              children: [
+                CircleAvatar(
+                  radius: 50,
+                  backgroundColor: Colors.white,
+                  backgroundImage: widget.user.fullProfilePhotoUrl != null
+                      ? NetworkImage(widget.user.fullProfilePhotoUrl!)
+                      : null,
+                  child: widget.user.fullProfilePhotoUrl == null
+                      ? Icon(
+                          Icons.person,
+                          size: 50,
+                          color: Colors.grey.shade400,
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  widget.user.name ?? 'Nama Pengguna',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // Input Nama
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nama Lengkap',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
+              decoration: _buildInputDecoration(
+                label: 'Nama Lengkap',
+                icon: Icons.person_outline,
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
@@ -137,12 +176,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               },
             ),
             const SizedBox(height: 20),
+
+            // Input Email
             TextFormField(
               controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.email),
+              decoration: _buildInputDecoration(
+                label: 'Email',
+                icon: Icons.email_outlined,
               ),
               keyboardType: TextInputType.emailAddress,
               validator: (value) {
@@ -155,29 +195,64 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
+            const SizedBox(height: 40),
+
+            // Tombol Simpan
+            ElevatedButton(
               onPressed: _isLoading ? null : _submitForm,
-              icon: _isLoading
-                  ? const SizedBox.shrink()
-                  : const Icon(Icons.save),
-              label: _isLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: profilePrimaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 52),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              child: _isLoading
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Text('Menyimpan...'),
+                      ],
                     )
                   : const Text('Simpan Perubahan'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                textStyle: const TextStyle(fontSize: 16),
-              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Helper untuk styling input field agar konsisten
+  InputDecoration _buildInputDecoration({
+    required String label,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: profilePrimaryColor.withOpacity(0.7)),
+      filled: true,
+      fillColor: Colors.white.withOpacity(0.7),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: profilePrimaryColor, width: 2),
       ),
     );
   }
