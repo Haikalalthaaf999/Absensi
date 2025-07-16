@@ -459,18 +459,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Statistics",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Color(0xff046865),
-          ),
-        ),
+        // const Text(
+        //   "Statistics",
+        //   style: TextStyle(
+        //     fontSize: 22,
+        //     fontWeight: FontWeight.bold,
+        //     color: Color(0xff046865),
+        //   ),
+        // ),
         const SizedBox(height: 16),
-        _buildSummaryCard(),
+        // _buildSummaryCard(),
         const SizedBox(height: 16),
-        _buildStatGrid(),
+        // _buildStatGrid(),
       ],
     );
   }
@@ -479,94 +479,94 @@ class _HomeScreenState extends State<HomeScreen> {
     return num.tryParse(_absenStats[key]?.toString() ?? '0')?.toInt() ?? 0;
   }
 
-  Widget _buildSummaryCard() {
-    double percent = 0.0;
-    final totalAbsen = _getStatAsInt('total_absen');
-    final totalMasuk = _getStatAsInt('total_masuk');
+  // Widget _buildSummaryCard() {
+  //   double percent = 0.0;
+  //   final totalAbsen = _getStatAsInt('total_absen');
+  //   final totalMasuk = _getStatAsInt('total_masuk');
 
-    if (totalAbsen > 0) {
-      percent = totalMasuk / totalAbsen;
-    }
+  //   if (totalAbsen > 0) {
+  //     percent = totalMasuk / totalAbsen;
+  //   }
 
-    return Card(
-      color: Colors.black.withOpacity(0.25),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: CircularPercentIndicator(
-                radius: 45.0,
-                lineWidth: 8.0,
-                percent: percent,
-                center: const Icon(
-                  Icons.pie_chart,
-                  color: Colors.white,
-                  size: 35,
-                ),
-                circularStrokeCap: CircularStrokeCap.round,
-                progressColor: Colors.white,
-                backgroundColor: Colors.white.withOpacity(0.3),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 3,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "${(percent * 100).toStringAsFixed(0)}%",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    "Attendance Rate",
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  //   return Card(
+  //     color: Colors.black.withOpacity(0.25),
+  //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  //     child: Padding(
+  //       padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
+  //       child: Row(
+  //         children: [
+  //           Expanded(
+  //             flex: 2,
+  //             child: CircularPercentIndicator(
+  //               radius: 45.0,
+  //               lineWidth: 8.0,
+  //               percent: percent,
+  //               center: const Icon(
+  //                 Icons.pie_chart,
+  //                 color: Colors.white,
+  //                 size: 35,
+  //               ),
+  //               circularStrokeCap: CircularStrokeCap.round,
+  //               progressColor: Colors.white,
+  //               backgroundColor: Colors.white.withOpacity(0.3),
+  //             ),
+  //           ),
+  //           const SizedBox(width: 12),
+  //           Expanded(
+  //             flex: 3,
+  //             child: Column(
+  //               mainAxisAlignment: MainAxisAlignment.center,
+  //               children: [
+  //                 Text(
+  //                   "${(percent * 100).toStringAsFixed(0)}%",
+  //                   style: const TextStyle(
+  //                     fontWeight: FontWeight.bold,
+  //                     fontSize: 24,
+  //                     color: Colors.white,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(height: 4),
+  //                 const Text(
+  //                   "Attendance Rate",
+  //                   style: TextStyle(color: Colors.white70),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 
-  Widget _buildStatGrid() {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.8,
-      children: [
-        _buildStatGridItem(
-          count: _getStatAsInt('total_masuk').toString(),
-          label: "Present",
-          color: Colors.green,
-        ),
-        // _buildStatGridItem(
-        //   count: _getStatAsInt('total_izin').toString(),
-        //   label: "Absents/Izin",
-        //   color: Colors.red,
-        // ),
-        // _buildStatGridItem(
-        //   count: "0",
-        //   label: "Early Leave",
-        //   color: Colors.blue,
-        // ),
-        // _buildStatGridItem(count: "0", label: "Late", color: Colors.orange),
-      ],
-    );
-  }
+  // Widget _buildStatGrid() {
+  //   return GridView.count(
+  //     crossAxisCount: 2,
+  //     shrinkWrap: true,
+  //     physics: const NeverScrollableScrollPhysics(),
+  //     mainAxisSpacing: 12,
+  //     crossAxisSpacing: 12,
+  //     childAspectRatio: 1.8,
+  //     children: [
+  //       _buildStatGridItem(
+  //         count: _getStatAsInt('total_masuk').toString(),
+  //         label: "Present",
+  //         color: Colors.green,
+  //       ),
+  //       // _buildStatGridItem(
+  //       //   count: _getStatAsInt('total_izin').toString(),
+  //       //   label: "Absents/Izin",
+  //       //   color: Colors.red,
+  //       // ),
+  //       // _buildStatGridItem(
+  //       //   count: "0",
+  //       //   label: "Early Leave",
+  //       //   color: Colors.blue,
+  //       // ),
+  //       // _buildStatGridItem(count: "0", label: "Late", color: Colors.orange),
+  //     ],
+  //   );
+  // }
 
 Widget _buildCopyright() {
     return Center(
