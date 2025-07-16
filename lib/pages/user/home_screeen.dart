@@ -10,10 +10,10 @@ import 'package:project3/models/attendance_model.dart';
 import 'package:project3/models/user_model.dart';
 import 'package:project3/utils/session_manager.dart';
 
-// --- Anda bisa menyesuaikan warna ini ---
+
 const Color primaryColor = Color(0xFF006769);
 const Color fontColor = Colors.black87;
-const Color accentColor = Color(0xFF40A578);
+const Color accentColor = Color(0xFF046865);
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -138,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // -- BAGIAN ATAS (STATIS / TIDAK BISA SCROLL) --
+                      
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20.0),
                           child: Column(
@@ -266,6 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+// card live attendance 
   Widget _buildLiveAttendanceCard() {
     return Card(
       color: Colors.black.withOpacity(0.25),
@@ -314,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildActivitySection() {
-    if (_todayAttendance == null) {
+    if (_todayAttendance == null) {  
       return Card(
         color: Colors.black.withOpacity(0.25),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -369,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ? "Finished"
               : "Belum Check Out",
           color: _todayAttendance!.checkOut != null
-              ? Colors.blueGrey
+              ? Colors.red
               : Colors.grey.shade700,
         ),
       ],
@@ -556,12 +557,12 @@ class _HomeScreenState extends State<HomeScreen> {
           label: "Absents/Izin",
           color: Colors.red,
         ),
-        _buildStatGridItem(
-          count: "0",
-          label: "Early Leave",
-          color: Colors.blue,
-        ),
-        _buildStatGridItem(count: "0", label: "Late", color: Colors.orange),
+        // _buildStatGridItem(
+        //   count: "0",
+        //   label: "Early Leave",
+        //   color: Colors.blue,
+        // ),
+        // _buildStatGridItem(count: "0", label: "Late", color: Colors.orange),
       ],
     );
   }

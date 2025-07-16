@@ -35,15 +35,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _getDeviceToken() async {
-    // Untuk pengembangan, kita bisa gunakan nilai dummy.
-    // Jika menggunakan Firebase, ganti dengan logika untuk mendapatkan token FCM.
+    // Untuk pengembangan,  gunakan nilai dummy.
     if (mounted) {
       setState(() {
         _deviceToken = 'dummy_device_token_for_testing';
       });
     }
   }
-
+//logic login
   Future<void> _login() async {
     // Sembunyikan keyboard saat tombol ditekan
     FocusScope.of(context).unfocus();
@@ -109,6 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // Header logo
             _buildHeader(),
             Padding(
               padding: const EdgeInsets.all(24.0),
@@ -122,6 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
+                        color: Color(0xff006769),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -135,6 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 32),
 
                     TextFormField(
+                      cursorColor: primaryColor,
                       controller: _emailController,
                       decoration: _buildInputDecoration(
                         label: 'Email',
@@ -152,6 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
 
                     TextFormField(
+                      cursorColor: primaryColor,
                       controller: _passwordController,
                       obscureText: _isPasswordHidden,
                       decoration: _buildInputDecoration(
@@ -181,6 +184,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+
+
+
+// Widget Area//
+
+
   Widget _buildHeader() {
     return ClipPath(
       clipper: WaveClipper(),
@@ -192,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/images/Asset 5.png', // Pastikan path logo benar
+              'assets/images/Asset 5.png', 
               height: 150,
               width: 150,
             ),
@@ -201,7 +210,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
+ //setting input
   InputDecoration _buildInputDecoration({
     required String label,
     required IconData icon,
@@ -209,6 +218,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }) {
     return InputDecoration(
       labelText: label,
+      labelStyle: const TextStyle(color: Color(0xff006769)),
       prefixIcon: Icon(icon, color: primaryColor.withOpacity(0.7)),
       filled: true,
       fillColor: Colors.grey.shade100,

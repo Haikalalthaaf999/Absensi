@@ -8,11 +8,9 @@ import 'package:project3/models/batch_model.dart';
 import 'package:project3/models/training_model.dart';
 
 class ApiService {
-  // BASE URL yang benar (tanpa /api di akhir)
-  // Ganti _baseUrl menjadi baseUrl (hapus underscore)
-  // Ini akan membuatnya bisa diakses publik dari luar file
+  // URL API
   static const String baseUrl =
-      'https://appabsensi.mobileprojp.com'; // [PERBAIKAN UTAMA DI SINI]
+      'https://appabsensi.mobileprojp.com';
 
   // Helper untuk membuat headers, digunakan di semua fungsi
   static Map<String, String> _getHeaders({String? token}) {
@@ -29,11 +27,11 @@ class ApiService {
   /// Endpoint: /api/profile (Untuk mengambil data user terbaru)
   static Future<Map<String, dynamic>> getProfile(String token) async {
     try {
-      // Menggunakan ApiService.baseUrl secara konsisten
+      // Menggunakan ApiService.baseUrl 
       final response = await http.get(
         Uri.parse(
           '$baseUrl/api/profile',
-        ), // [PERBAIKAN: Gunakan 'baseUrl' tanpa underscore]
+        ),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -43,7 +41,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        // Mengembalikan pesan error dari server jika ada
+        // Mengembalikan pesan error dari server    
         final errorData = json.decode(response.body);
         return {'message': errorData['message'] ?? 'Gagal memuat profil'};
       }
@@ -61,7 +59,7 @@ class ApiService {
       headers: _getHeaders(token: token),
       body: jsonEncode(data),
     );
-    // Langsung decode dan kembalikan respons dari server
+    // decode dan kembalikan respons dari server
     return jsonDecode(response.body);
   }
 
@@ -90,18 +88,18 @@ class ApiService {
     final response = await http.post(
       Uri.parse(
         '$baseUrl/api/login',
-      ), // [PERBAIKAN: Gunakan 'baseUrl' tanpa underscore]
+      ), 
       headers: _getHeaders(),
       body: jsonEncode({
         'email': email,
         'password': password,
-        'device_token': deviceToken, // Tambahkan ini ke body jika dibutuhkan
+        'device_token': deviceToken, // Opsional
       }),
     );
     return jsonDecode(response.body);
   }
 
-  /// Endpoint: /api/register (Diperbarui dengan parameter lengkap)
+  /// Endpoint: /api/register 
   static Future<Map<String, dynamic>> register({
     required String name,
     required String email,
@@ -126,24 +124,24 @@ class ApiService {
     final response = await http.post(
       Uri.parse(
         '$baseUrl/api/register',
-      ), // [PERBAIKAN: Gunakan 'baseUrl' tanpa underscore]
+      ), 
       headers: _getHeaders(),
       body: jsonEncode(body),
     );
     return json.decode(response.body);
   }
 
-  // --- FUNGSI GETTRAININGS DIPERBARUI ---
+  // --- FUNGSI GETTRAININGS  ---
   static Future<ListJurusan> getTrainings() async {
     final response = await http.get(
       Uri.parse(
         '$baseUrl/api/trainings',
-      ), // [PERBAIKAN: Gunakan 'baseUrl' tanpa underscore]
+      ), 
       headers: {'Accept': 'application/json'},
     );
 
     if (response.statusCode == 200) {
-      // Langsung parse JSON menjadi objek ListJurusan
+      // parse JSON menjadi objek ListJurusan
       return listJurusanFromJson(response.body);
     } else {
       throw Exception('Gagal memuat data training');
@@ -159,7 +157,7 @@ class ApiService {
       headers: _getHeaders(),
     );
     if (response.statusCode == 200) {
-      // Langsung parse JSON menjadi objek BatchResponse
+      // parse JSON menjadi objek BatchResponse
       return batchResponseFromJson(response.body);
     } else {
       throw Exception('Gagal memuat data batch');
@@ -175,7 +173,7 @@ class ApiService {
     final response = await http.post(
       Uri.parse(
         '$baseUrl/api/izin',
-      ), // [PERBAIKAN: Gunakan 'baseUrl' tanpa underscore]
+      ), 
       headers: _getHeaders(token: token),
       body: jsonEncode({'date': date, 'alasan_izin': reason}),
     );
@@ -194,10 +192,7 @@ class ApiService {
       final now = DateTime.now();
       final String formattedDate = DateFormat('yyyy-MM-dd').format(now);
 
-      // ==========================================================
-      // PERBAIKAN DI SINI: Hapus ':ss' dari format waktu
       final String formattedTime = DateFormat('HH:mm').format(now);
-      // ==========================================================
 
       Map<String, dynamic> body = {
         'check_in_lat': latitude.toString(),
@@ -214,7 +209,7 @@ class ApiService {
         body: jsonEncode(body),
       );
 
-      // Anda bisa menghapus print ini jika sudah berhasil
+      // untukmenampilkan response di debug console
       print('SERVER RESPONSE STATUS CODE: ${response.statusCode}');
       print('SERVER RESPONSE BODY: ${response.body}');
 
@@ -245,16 +240,17 @@ class ApiService {
 
     try {
       final DateTime now = DateTime.now();
+      // untuk mendapatkan hari dalam format HH:mm
       final String formattedTime = DateFormat('HH:mm').format(now);
-      // TAMBAHKAN INI untuk mendapatkan tanggal dalam format YYYY-MM-DD
+      // untuk mendapatkan tanggal dalam format YYYY-MM-DD
       final String formattedDate = DateFormat('yyyy-MM-dd').format(now);
 
       final response = await http.post(
         url,
         headers: _getHeaders(token: token),
         body: jsonEncode({
-          // <-- BODY YANG BARU (SUDAH LENGKAP)
-          'attendance_date': formattedDate, // <-- PERBAIKAN DI SINI
+          
+          'attendance_date': formattedDate, 
           'check_out_lat': latitude.toString(),
           'check_out_lng': longitude.toString(),
           'check_out_address': address,
@@ -292,7 +288,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse(
         '$baseUrl/api/absen/today',
-      ), // [PERBAIKAN: Gunakan 'baseUrl' tanpa underscore]
+      ), 
       headers: _getHeaders(token: token),
     );
     return jsonDecode(response.body);
@@ -303,7 +299,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse(
         '$baseUrl/api/absen/stats',
-      ), // [PERBAIKAN: Gunakan 'baseUrl' tanpa underscore]
+      ), 
       headers: _getHeaders(token: token),
     );
     return jsonDecode(response.body);
@@ -317,7 +313,7 @@ class ApiService {
   }) async {
     var uri = Uri.parse(
       '$baseUrl/api/absen/history',
-    ); // [PERBAIKAN: Gunakan 'baseUrl' tanpa underscore]
+    ); 
     if (startDate != null && endDate != null) {
       uri = uri.replace(queryParameters: {'start': startDate, 'end': endDate});
     }
@@ -332,7 +328,7 @@ class ApiService {
     final response = await http.delete(
       Uri.parse(
         '$baseUrl/api/absen/$id',
-      ), // [PERBAIKAN: Gunakan 'baseUrl' tanpa underscore]
+      ), 
       headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
     );
 

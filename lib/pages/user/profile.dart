@@ -273,7 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           child: _buildStatCard(
             icon: Icons.school_outlined,
             label: "Jurusan",
-            value: _currentUser?.training?.title?.split(' ').first ?? 'N/A',
+            value: _currentUser?.training?.title?? 'N/A',
             color: profilePrimaryColor,
           ),
         ),

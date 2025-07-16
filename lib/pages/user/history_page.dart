@@ -1,15 +1,16 @@
-// lib/pages/user/history_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:project3/api/api_service.dart';
 import 'package:project3/models/attendance_model.dart';
 import 'package:project3/utils/session_manager.dart';
 
-// --- Palet Warna Sesuai Desain ---
-const Color appBarColor = Color(0xFF0D47A1); // Biru tua
-const Color presentColor = Color(0xFF2E7D32); // Hijau
-const Color absentColor = Color(0xFFD32F2F); // Merah
+// --- Palet Warna Baru yang Lebih Segar ---
+const Color primaryColor = Color(0xFF006769);
+const Color accentColor = Color(0xFF40A578);
+const Color pageBackgroundColor = Color(0xffF7E9D7);
+const Color textColor = Color(0xFF333333);
+const Color presentColor = Color(0xFF2E7D32);
+const Color absentColor = Color(0xFFD32F2F);
 const Color lateColor = Colors.orange;
 
 class HistoryPage extends StatefulWidget {
@@ -20,7 +21,7 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  final SessionManager _sessionManager = SessionManager();  
+  final SessionManager _sessionManager = SessionManager();
   List<Attendance> _allHistory = [];
   List<Attendance> _filteredHistory = [];
   bool _isLoading = true;
@@ -37,30 +38,22 @@ class _HistoryPageState extends State<HistoryPage> {
   String get _formattedMonth =>
       DateFormat('MMMM yyyy', 'id_ID').format(_selectedMonth);
 
-  // --- LOGIKA FILTER DIPERBAIKI TOTAL ---
+  // Fungsi logika (tidak ada perubahan)
   void _applyFilter(String filter) {
     setState(() {
       _activeFilter = filter;
       _filteredHistory = _allHistory.where((item) {
         String status = item.status.toLowerCase();
-
         if (filter == 'All') return true;
-
-        // Logika untuk filter 'Present'
         if (filter == 'Present') {
           return ['masuk', 'present', 'leave'].contains(status);
         }
-
-        // Logika untuk filter 'Late In'
         if (filter == 'Late In') {
           return ['terlambat', 'late in'].contains(status);
         }
-
-        // Logika untuk filter 'Absent'
         if (filter == 'Absent') {
           return ['absen', 'izin', 'sakit'].contains(status);
         }
-
         return false;
       }).toList();
     });
@@ -69,24 +62,20 @@ class _HistoryPageState extends State<HistoryPage> {
   Future<void> _loadHistory() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
-
     try {
       final token = await _sessionManager.getToken();
       if (token == null) throw Exception("Token tidak valid");
-
       final startDate = DateFormat(
         'yyyy-MM-dd',
       ).format(DateTime(_selectedMonth.year, _selectedMonth.month, 1));
       final endDate = DateFormat(
         'yyyy-MM-dd',
       ).format(DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0));
-
       final result = await ApiService.getHistory(
         token,
         startDate: startDate,
         endDate: endDate,
       );
-
       if (mounted) {
         if (result['data'] != null && result['data'] is List) {
           _allHistory = (result['data'] as List)
@@ -116,24 +105,61 @@ class _HistoryPageState extends State<HistoryPage> {
     _loadHistory();
   }
 
+  // --- Fungsi untuk menampilkan date picker ---
+  Future<void> _selectMonth(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedMonth,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      initialDatePickerMode: DatePickerMode.year,
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            primaryColor: primaryColor,
+            colorScheme: const ColorScheme.light(primary: primaryColor),
+            buttonTheme: const ButtonThemeData(
+              textTheme: ButtonTextTheme.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null &&
+        (picked.month != _selectedMonth.month ||
+            picked.year != _selectedMonth.year)) {
+      setState(() {
+        _selectedMonth = picked;
+        _activeFilter = 'All';
+      });
+      _loadHistory();
+    }
+  }
+
+  // --- WIDGET BUILDER UTAMA (STRUKTUR BARU) ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7E9D7),
+      backgroundColor: pageBackgroundColor,
       appBar: AppBar(
         title: const Text('Riwayat Absensi'),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
         elevation: 1,
         automaticallyImplyLeading: false,
       ),
       body: Column(
         children: [
-          _buildMonthSelector(),
-          _buildFilterChips(),
+          _buildMonthSelectorCard(), // Card pemilih bulan
+          _buildFilterTabs(), // Tabs filter
+          const SizedBox(height: 8),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(
+                    child: CircularProgressIndicator(color: primaryColor),
+                  )
                 : _errorMessage != null
                 ? Center(child: Text("Error: $_errorMessage"))
                 : _buildGroupedHistoryList(),
@@ -143,103 +169,113 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _buildMonthSelector() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios, size: 20),
-            onPressed: () => _changeMonth(-1),
-          ),
-          Row(
-            children: [
-              const Icon(Icons.calendar_today, size: 18, color: appBarColor),
-              const SizedBox(width: 8),
-              Text(
-                _formattedMonth,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.arrow_forward_ios, size: 20),
-            onPressed: () => _changeMonth(1),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChips() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+  // --- PEMILIH BULAN DENGAN GAYA CARD ---
+  Widget _buildMonthSelectorCard() {
+    return Card(
+      margin: const EdgeInsets.all(12),
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            "All",
-            "Present",
-            "Late In",
-            "Absent",
-          ].map((label) => _buildFilterChip(label)).toList(),
+            IconButton(
+              icon: const Icon(Icons.chevron_left, color: textColor, size: 28),
+              onPressed: () => _changeMonth(-1),
+            ),
+            GestureDetector(
+              onTap: () => _selectMonth(context),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_month_outlined,
+                    size: 20,
+                    color: primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _formattedMonth,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right, color: textColor, size: 28),
+              onPressed: () => _changeMonth(1),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildFilterChip(String label) {
+  // --- FILTER DENGAN GAYA TABS MODERN ---
+  Widget _buildFilterTabs() {
+    final filters = ["All", "Present", "Absent"];
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: filters
+            .map((label) => Expanded(child: _buildFilterTab(label)))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildFilterTab(String label) {
     final bool isActive = _activeFilter == label;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: isActive,
-        onSelected: (selected) {
-          if (selected) _applyFilter(label);
-        },
-        selectedColor: Colors.blue.shade50,
-        labelStyle: TextStyle(
-          color: isActive ? appBarColor : Colors.black54,
-          fontWeight: FontWeight.bold,
-        ),
-        backgroundColor: Colors.grey.shade200,
-        shape: RoundedRectangleBorder(
+    return GestureDetector(
+      onTap: () => _applyFilter(label),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? primaryColor : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(
-            color: isActive ? appBarColor : Colors.grey.shade300,
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.3),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? Colors.white : textColor.withOpacity(0.7),
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
-        elevation: isActive ? 1 : 0,
       ),
     );
   }
 
+  // (Fungsi-fungsi di bawah ini tidak ada perubahan)
   Widget _buildGroupedHistoryList() {
     if (_filteredHistory.isEmpty) {
       return const Center(
-        child: Text("Tidak ada data yang sesuai dengan filter."),
+        child: Text("Tidak ada data riwayat untuk bulan ini."),
       );
     }
-
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       itemCount: _filteredHistory.length,
       itemBuilder: (context, index) {
         final attendanceItem = _filteredHistory[index];
@@ -251,7 +287,6 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget _buildAttendanceDayCard(Attendance item) {
     final date = DateTime.parse(item.date);
     bool isAbsent = item.checkIn == null || item.checkIn!.isEmpty;
-
     String workingHours = '00h 00m';
     if (!isAbsent && item.checkOut != null) {
       try {
@@ -268,21 +303,11 @@ class _HistoryPageState extends State<HistoryPage> {
         /* Biarkan default */
       }
     }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return Card(
+      elevation: 1.5,
+      shadowColor: Colors.black.withOpacity(0.08),
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         child: Row(
@@ -291,13 +316,8 @@ class _HistoryPageState extends State<HistoryPage> {
               width: 55,
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.grey.shade50, Colors.grey.shade200],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
+                color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300, width: 1),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -307,7 +327,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -341,14 +361,13 @@ class _HistoryPageState extends State<HistoryPage> {
                           "Clock out",
                         ),
                         _buildTimeDetail(
-                          Icons.hourglass_empty_outlined,
+                          Icons.schedule,
                           workingHours,
-                          "Working hrs",
+                          "Durasi",
                         ),
                       ],
                     ),
             ),
-            const SizedBox(width: 8),
             _buildStatusChip(item),
           ],
         ),
@@ -366,7 +385,7 @@ class _HistoryPageState extends State<HistoryPage> {
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
-            color: Colors.black87,
+            color: textColor,
           ),
         ),
         const SizedBox(height: 2),
@@ -382,44 +401,35 @@ class _HistoryPageState extends State<HistoryPage> {
     Color chipColor;
     String statusText;
     final status = item.status.toLowerCase();
-
     switch (status) {
       case 'masuk':
       case 'present':
       case 'leave':
         chipColor = presentColor;
-        statusText = 'Present';
+        statusText = 'Hadir';
         break;
       case 'terlambat':
       case 'late in':
         chipColor = lateColor;
-        statusText = 'Late In';
+        statusText = 'Telat';
         break;
-      default: // Termasuk 'izin', 'sakit', 'absen'
+      default:
         chipColor = absentColor;
-        statusText = 'Absent';
+        statusText = 'Absen';
         break;
     }
-
     return Container(
-      width: 65,
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      width: 55,
+      padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: chipColor,
+        color: chipColor.withOpacity(0.15),
         borderRadius: BorderRadius.circular(6),
-        boxShadow: [
-          BoxShadow(
-            color: chipColor.withOpacity(0.4),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Center(
         child: Text(
           statusText,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: chipColor,
             fontSize: 11,
             fontWeight: FontWeight.bold,
           ),

@@ -194,7 +194,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // --- WIDGET HELPER UNTUK DESAIN BARU ---
+  // --- WIDGET HELPER ---
 
   Widget _buildHeader() {
     return ClipPath(
@@ -235,6 +235,7 @@ class _RegisterPageState extends State<RegisterPage> {
     TextInputType? keyboardType,
   }) {
     return TextFormField(
+       cursorColor: primaryColor,
       controller: controller,
       obscureText: isPassword ? _isPasswordHidden : false,
       decoration: _buildInputDecoration(
@@ -261,6 +262,7 @@ class _RegisterPageState extends State<RegisterPage> {
       ],
       onChanged: (value) => setState(() => _selectedGender = value),
       validator: (value) => value == null ? 'Wajib dipilih' : null,
+      dropdownColor: Colors.grey.shade100,
     );
   }
 
@@ -283,6 +285,7 @@ class _RegisterPageState extends State<RegisterPage> {
           ? null
           : (value) => setState(() => _selectedTrainingId = value),
       validator: (value) => value == null ? 'Wajib dipilih' : null,
+      dropdownColor: Colors.grey.shade100,
     );
   }
 
@@ -308,6 +311,7 @@ class _RegisterPageState extends State<RegisterPage> {
           ? null
           : (value) => setState(() => _selectedBatchId = value),
       validator: (value) => value == null ? 'Wajib dipilih' : null,
+      dropdownColor: Colors.grey.shade100,
     );
   }
 
@@ -318,6 +322,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }) {
     return InputDecoration(
       labelText: label,
+      labelStyle: const TextStyle(color: Color(0xff006769)),
       prefixIcon: Icon(icon, color: primaryColor.withOpacity(0.7)),
       filled: true,
       fillColor: Colors.grey.shade100,
@@ -383,7 +388,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 }
 
-// Custom Clipper untuk membuat bentuk gelombang (sama seperti di login)
+// Custom Clipper untuk membuat bentuk gelombang 
 class WaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
