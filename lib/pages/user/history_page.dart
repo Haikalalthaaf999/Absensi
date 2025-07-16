@@ -137,7 +137,7 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
-  // --- WIDGET BUILDER UTAMA (STRUKTUR BARU) ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -164,6 +164,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ? Center(child: Text("Error: $_errorMessage"))
                 : _buildGroupedHistoryList(),
           ),
+        _buildCopyright(),
         ],
       ),
     );
@@ -267,7 +268,18 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  // (Fungsi-fungsi di bawah ini tidak ada perubahan)
+  Widget _buildCopyright() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24.0),
+        child: Text(
+          '© ${DateTime.now().year} Sentinel. All Rights Reserved.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12, color: Color(0xff046865)),
+        ),
+      ),
+    );
+  }
   Widget _buildGroupedHistoryList() {
     if (_filteredHistory.isEmpty) {
       return const Center(

@@ -1,15 +1,14 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 
+import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:shimmer/shimmer.dart';
-
 import 'package:project3/api/api_service.dart';
 import 'package:project3/models/attendance_model.dart';
 import 'package:project3/utils/session_manager.dart';
+import 'package:shimmer/shimmer.dart';
 
 const Color primaryColor = Color(0xFF006769);
 const Color accentColor = Color(0xFF40A578);
@@ -470,7 +469,7 @@ class _MapScreenState extends State<MapScreen> {
                         children: [
                           ElevatedButton(
                             onPressed: () => Navigator.pop(context),
-                              style: ElevatedButton.styleFrom(
+                            style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.red,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
@@ -512,6 +511,7 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  // Build body
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -661,6 +661,7 @@ class _MapScreenState extends State<MapScreen> {
               const SizedBox(height: 16),
               if (_isLoading) _buildShimmerEffect() else _buildAttendanceInfo(),
               const SizedBox(height: 20),
+            _buildCopyright(),
             ],
           ),
         );
@@ -724,6 +725,19 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCopyright() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24.0),
+        child: Text(
+          '© ${DateTime.now().year} Sentinel. All Rights Reserved.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12, color: Color(0xff046865)),
+        ),
+      ),
     );
   }
 

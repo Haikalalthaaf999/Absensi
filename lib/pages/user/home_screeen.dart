@@ -190,6 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                     ),
+                                    _buildCopyright(),
                                   const SizedBox(height: 80),
                                 ],
                               ),
@@ -567,6 +568,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+Widget _buildCopyright() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24.0),
+        child: Text(
+          '© ${DateTime.now().year} Sentinel. All Rights Reserved.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xff046865), 
+          ),
+        ),
+      ),
+    );
+  }
   Widget _buildStatGridItem({
     required String count,
     required String label,

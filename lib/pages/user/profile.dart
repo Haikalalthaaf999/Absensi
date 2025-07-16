@@ -156,7 +156,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  // --- UI BUILDER DENGAN DESAIN KREASI BARU ---
+  // --- UI BUILDER ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -190,6 +190,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 _buildAnimatedItem(2, _buildInfoPanel()),
                 const SizedBox(height: 24),
                 _buildAnimatedItem(3, _buildLogoutButton()),
+              _buildCopyright(),
               ],
             ),
     );
@@ -281,6 +282,18 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  Widget _buildCopyright() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24.0),
+        child: Text(
+          '© ${DateTime.now().year} Sentinel. All Rights Reserved.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12, color: Color(0xff046865)),
+        ),
+      ),
+    );
+  }
   Widget _buildStatCard({
     required IconData icon,
     required String label,
