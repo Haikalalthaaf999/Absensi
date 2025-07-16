@@ -553,11 +553,11 @@ class _HomeScreenState extends State<HomeScreen> {
           label: "Present",
           color: Colors.green,
         ),
-        _buildStatGridItem(
-          count: _getStatAsInt('total_izin').toString(),
-          label: "Absents/Izin",
-          color: Colors.red,
-        ),
+        // _buildStatGridItem(
+        //   count: _getStatAsInt('total_izin').toString(),
+        //   label: "Absents/Izin",
+        //   color: Colors.red,
+        // ),
         // _buildStatGridItem(
         //   count: "0",
         //   label: "Early Leave",
