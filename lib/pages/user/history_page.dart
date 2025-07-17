@@ -219,7 +219,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   // --- FILTER DENGAN GAYA TABS MODERN ---
   Widget _buildFilterTabs() {
-    final filters = ["All", "Present"];
+    final filters = ["All", "Present","Absent"];
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
       padding: const EdgeInsets.all(4),
@@ -372,11 +372,11 @@ class _HistoryPageState extends State<HistoryPage> {
                           item.checkOut,
                           "Clock out",
                         ),
-                        // _buildTimeDetail(
-                        //   Icons.schedule,
-                        //   workingHours,
-                        //   "Durasi",
-                        // ),
+                        _buildTimeDetail(
+                          Icons.schedule,
+                          workingHours,
+                          "Durasi",
+                        ),
                       ],
                     ),
             ),

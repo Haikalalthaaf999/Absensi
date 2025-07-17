@@ -326,22 +326,22 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // OutlinedButton.icon(
-                //   icon: const Icon(Icons.event_busy_outlined, size: 20),
-                //   label: const Text('Ajukan Izin / Sakit'),
-                //   onPressed: () {
-                //     Navigator.pop(context);
-                //     _showIzinDialog();
-                //   },
-                //   style: OutlinedButton.styleFrom(
-                //     foregroundColor: primaryColor,
-                //     side: const BorderSide(color: primaryColor),
-                //     minimumSize: const Size(double.infinity, 50),
-                //     shape: RoundedRectangleBorder(
-                //       borderRadius: BorderRadius.circular(12),
-                //     ),
-                //   ),
-                // ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.event_busy_outlined, size: 20),
+                  label: const Text('Ajukan Izin / Sakit'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showIzinDialog();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primaryColor,
+                    side: const BorderSide(color: primaryColor),
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
@@ -647,15 +647,15 @@ class _MapScreenState extends State<MapScreen> {
                     'Absensi Lokasi',
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-                  // TextButton.icon(
-                  //   onPressed: _showIzinDialog,
-                  //   icon: const Icon(Icons.note_add_outlined, size: 20),
-                  //   label: const Text('Ajukan Izin'),
-                  //   style: TextButton.styleFrom(
-                  //     foregroundColor: primaryColor,
-                  //     padding: const EdgeInsets.symmetric(horizontal: 10),
-                  //   ),
-                  // ),
+                  TextButton.icon(
+                    onPressed: _showIzinDialog,
+                    icon: const Icon(Icons.note_add_outlined, size: 20),
+                    label: const Text('Ajukan Izin'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: primaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),

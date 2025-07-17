@@ -1,3 +1,7 @@
+// Import yang dibutuhkan untuk membaca file properties
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,8 +9,19 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// =================================================================
+// KODE YANG SUDAH DIPERBAIKI (Sintaks Kotlin)
+// =================================================================
+// Membaca file key.properties dengan sintaks Kotlin yang benar
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+// =================================================================
+
 android {
-    namespace = "com.example.project3"
+    namespace = "com.sentinel.project3"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -20,23 +35,37 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.project3"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        applicationId = "com.sentinel.project3"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+    // =================================================================
+    // KODE YANG SUDAH DIPERBAIKI (Sintaks Kotlin)
+    // =================================================================
+    signingConfigs {
+        create("release") {
+            // Mengambil nilai dari key.properties dengan cara Kotlin
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = file(keystoreProperties.getProperty("storeFile"))
+            storePassword = keystoreProperties.getProperty("storePassword")
         }
     }
+
+    buildTypes {
+        release {
+            // Menghubungkan build 'release' dengan signing config 'release'
+            signingConfig = signingConfigs.getByName("release")
+            // Menggunakan tanda '=' untuk assignment
+            // isMinifyEnabled = false // Anda bisa aktifkan jika perlu
+            // shrinkResources = false // Anda bisa aktifkan jika perlu
+            // proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+    // =================================================================
 }
 
 flutter {

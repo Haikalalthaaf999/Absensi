@@ -1,6 +1,7 @@
 // lib/screens/profile_screen.dart
 
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:project3/api/api_service.dart';
@@ -190,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 _buildAnimatedItem(2, _buildInfoPanel()),
                 const SizedBox(height: 24),
                 _buildAnimatedItem(3, _buildLogoutButton()),
-              _buildCopyright(),
+                _buildCopyright(),
               ],
             ),
     );
@@ -217,19 +218,45 @@ class _ProfileScreenState extends State<ProfileScreen>
       children: [
         GestureDetector(
           onTap: _changePhoto,
-          child: CircleAvatar(
-            radius: 40,
-            backgroundColor: profilePrimaryColor.withOpacity(0.2),
-            child: CircleAvatar(
-              radius: 37,
-              backgroundColor: Colors.grey.shade300,
-              backgroundImage: _currentUser?.fullProfilePhotoUrl != null
-                  ? NetworkImage(_currentUser!.fullProfilePhotoUrl!)
-                  : null,
-              child: _currentUser?.fullProfilePhotoUrl == null
-                  ? Icon(Icons.person, size: 40, color: Colors.grey.shade500)
-                  : null,
-            ),
+          child: Stack(
+            children: [
+              // Avatar profil yang sudah ada
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: profilePrimaryColor.withOpacity(0.2),
+                child: CircleAvatar(
+                  radius: 37,
+                  backgroundColor: Colors.grey.shade300,
+                  backgroundImage: _currentUser?.fullProfilePhotoUrl != null
+                      ? NetworkImage(_currentUser!.fullProfilePhotoUrl!)
+                      : null,
+                  child: _currentUser?.fullProfilePhotoUrl == null
+                      ? Icon(
+                          Icons.person,
+                          size: 40,
+                          color: Colors.grey.shade500,
+                        )
+                      : null,
+                ),
+              ),
+              // Ikon kamera di pojok kanan bawah
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: profilePrimaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(width: 16),
@@ -238,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Halo, ${_currentUser?.name?.split(' ').first ?? ''}',
+                'Halo, ${_currentUser?.name.split(' ').first ?? ''}',
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -274,7 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           child: _buildStatCard(
             icon: Icons.school_outlined,
             label: "Jurusan",
-            value: _currentUser?.training?.title?? 'N/A',
+            value: _currentUser?.training?.title ?? 'N/A',
             color: profilePrimaryColor,
           ),
         ),
@@ -294,6 +321,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
     );
   }
+
   Widget _buildStatCard({
     required IconData icon,
     required String label,
@@ -400,4 +428,3 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 }
- 
