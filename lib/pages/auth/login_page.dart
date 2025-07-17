@@ -42,7 +42,8 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     }
   }
-//logic login
+
+  //logic login
   Future<void> _login() async {
     // Sembunyikan keyboard saat tombol ditekan
     FocusScope.of(context).unfocus();
@@ -184,11 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-
-
-
-// Widget Area//
-
+  // Widget Area//
 
   Widget _buildHeader() {
     return ClipPath(
@@ -200,17 +197,14 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/images/Asset 5.png', 
-              height: 150,
-              width: 150,
-            ),
+            Image.asset('assets/images/Asset 5.png', height: 150, width: 150),
           ],
         ),
       ),
     );
   }
- //setting input
+
+  //setting input
   InputDecoration _buildInputDecoration({
     required String label,
     required IconData icon,
