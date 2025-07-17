@@ -6,8 +6,6 @@ import 'package:project3/pages/auth/login_page.dart';
 
 import '../../models/batch_model.dart';
 import '../../models/training_model.dart';
-import '../../models/user_model.dart';
-import '../../utils/session_manager.dart';
 
 // Tema Warna Aplikasi
 const Color primaryColor = Color(0xFF006769);
@@ -235,7 +233,7 @@ class _RegisterPageState extends State<RegisterPage> {
     TextInputType? keyboardType,
   }) {
     return TextFormField(
-       cursorColor: primaryColor,
+      cursorColor: primaryColor,
       controller: controller,
       obscureText: isPassword ? _isPasswordHidden : false,
       decoration: _buildInputDecoration(
@@ -388,7 +386,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 }
 
-// Custom Clipper untuk membuat bentuk gelombang 
+// Custom Clipper untuk membuat bentuk gelombang
 class WaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
